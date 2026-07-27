@@ -1,6 +1,7 @@
-import { BadgeCheck, QrCode, ScanLine, X } from 'lucide-react';
+import { BadgeCheck, LoaderCircle, ScanLine, X } from 'lucide-react';
+import QRCode from 'qrcode';
 import type { JSX } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import type { CitizenProfile } from '../types';
@@ -25,6 +26,8 @@ function getInitials(profile: CitizenProfile): string {
 }
 
 export function PersonalQrDialog({ isOpen, profile, onClose }: PersonalQrDialogProps): JSX.Element | null {
+    const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+
     useEffect(() => {
         if (!isOpen) {
             return;
@@ -39,6 +42,33 @@ export function PersonalQrDialog({ isOpen, profile, onClose }: PersonalQrDialogP
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
+
+    useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+
+        let isActive = true;
+        setQrDataUrl(null);
+
+        void QRCode.toDataURL(`KUMUSTAKA_MEMBER:${profile.id}`, {
+            errorCorrectionLevel: 'M',
+            margin: 2,
+            width: 320,
+            color: {
+                dark: '#075985',
+                light: '#ffffff',
+            },
+        }).then((dataUrl) => {
+            if (isActive) {
+                setQrDataUrl(dataUrl);
+            }
+        });
+
+        return () => {
+            isActive = false;
+        };
+    }, [isOpen, profile.id]);
 
     if (!isOpen) {
         return null;
@@ -92,17 +122,17 @@ export function PersonalQrDialog({ isOpen, profile, onClose }: PersonalQrDialogP
                     </div>
                 </div>
 
-                <div className="mt-4 grid min-h-52 place-items-center rounded-2xl border border-dashed border-sky-200 bg-sky-50/60 p-6 text-center">
-                    <div>
-                        <QrCode className="mx-auto size-20 text-sky-300" aria-hidden="true" />
-                        <p className="mt-3 text-xs font-extrabold text-slate-700">Account identifier</p>
-                        <p className="mt-1 font-mono text-sm font-black break-all text-sky-700">{profile.username}</p>
-                    </div>
+                <div className="mt-4 grid min-h-52 place-items-center rounded-2xl border border-sky-200 bg-sky-50/60 p-5 text-center">
+                    {qrDataUrl ? (
+                        <img src={qrDataUrl} alt={`Member QR code for ${fullName}`} className="size-52 rounded-xl bg-white p-2 shadow-sm" />
+                    ) : (
+                        <LoaderCircle className="size-10 animate-spin text-sky-500" aria-label="Generating member QR code" />
+                    )}
                 </div>
 
                 <div className="mt-4 flex items-center justify-center gap-2 text-xs font-bold text-sky-700">
                     <ScanLine className="size-4" aria-hidden="true" />
-                    Ready for QR provider integration
+                    Scan this code to add me to a circle
                 </div>
             </div>
         </div>,

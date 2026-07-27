@@ -1,10 +1,14 @@
 <?php
 
+use App\Events\AffectedResidentsChanged;
 use App\Events\CitizenAssistanceStatusUpdated;
+use App\Models\AffectedResident;
+use App\Models\DisasterIncident;
 use App\Models\SafetyCircle;
 use App\Models\SafetyCircleMember;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
+use Inertia\Testing\AssertableInertia as Assert;
 
 function createAssistanceRequest(string $status = 'rescue'): SafetyCircleMember
 {
@@ -64,6 +68,78 @@ test('responder can accept an assistance request and broadcasts the update', fun
         ->accepted_at->not->toBeNull();
 
     Event::assertDispatched(CitizenAssistanceStatusUpdated::class);
+});
+
+test('responder transaction updates affected residents through websocket', function () {
+    $gcc = User::factory()->create(['role' => 'gcc']);
+    $responder = User::factory()->create(['role' => 'responder']);
+    $assistanceRequest = createAssistanceRequest();
+    $incident = DisasterIncident::create([
+        'created_by' => $gcc->id,
+        'title' => 'Active Rescue',
+        'hazard_type' => 'flood',
+        'severity' => 'critical',
+        'status' => 'monitoring',
+        'latitude' => $assistanceRequest->circle->latitude,
+        'longitude' => $assistanceRequest->circle->longitude,
+        'radius_meters' => 5000,
+        'color' => '#dc2626',
+        'location_name' => $assistanceRequest->circle->location_name,
+    ]);
+    $affectedResident = AffectedResident::create([
+        'disaster_incident_id' => $incident->id,
+        'safety_circle_member_id' => $assistanceRequest->id,
+        'first_name' => $assistanceRequest->user->fname,
+        'last_name' => $assistanceRequest->user->lname,
+        'birthdate' => null,
+        'sex' => 'other',
+        'status' => 'possibly_affected',
+        'resident_status' => 0,
+        'circle_safety_status' => 'rescue',
+    ]);
+
+    Event::fake([AffectedResidentsChanged::class, CitizenAssistanceStatusUpdated::class]);
+
+    $this->actingAs($responder)
+        ->patch(route('responder.requests.update', $assistanceRequest), ['status' => 'accepted'])
+        ->assertRedirect();
+
+    expect($affectedResident->fresh()->resident_status)->toBe(3);
+    Event::assertDispatched(
+        AffectedResidentsChanged::class,
+        fn (AffectedResidentsChanged $event): bool => $event->incidentId === $incident->id
+            && $event->affectedResidentId === $affectedResident->id
+            && $event->action === 'responder_accepted',
+    );
+
+    $this->actingAs($responder)
+        ->patch(route('responder.requests.update', $assistanceRequest), ['status' => 'resolved'])
+        ->assertRedirect();
+
+    expect($affectedResident->fresh()->status)->toBe('rescued');
+    Event::assertDispatched(
+        AffectedResidentsChanged::class,
+        fn (AffectedResidentsChanged $event): bool => $event->incidentId === $incident->id
+            && $event->affectedResidentId === $affectedResident->id
+            && $event->action === 'responder_resolved',
+    );
+
+    $affectedResident->update(['status' => 'possibly_affected']);
+
+    $this->actingAs($gcc)
+        ->get(route('gcc.affected-residents.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('incidentGroups.0.residents.0.status', 'rescued'));
+
+    expect($affectedResident->fresh()->status)->toBe('rescued');
+
+    $this->actingAs($gcc)
+        ->get(route('gcc.dashboard.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('responseSummary.urgent_rescue', 0)
+            ->where('responseSummary.rescued', 1));
 });
 
 test('responder assigned route only shows requests assigned to the current responder', function () {

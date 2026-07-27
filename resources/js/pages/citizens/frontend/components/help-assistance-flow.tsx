@@ -19,7 +19,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import type { ChangeEvent, JSX } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
     assistanceResponseSeeds,
@@ -31,6 +31,8 @@ import {
 } from '../assistance-response-seeder';
 
 type HelpFlowStep = 'listening' | 'review' | 'sending' | 'guidance';
+
+const silenceTimeoutMs = 5000;
 
 export type { AssistanceFlowMode } from '../assistance-response-seeder';
 
@@ -62,13 +64,13 @@ const assistanceFlowContent: Record<AssistanceFlowMode, AssistanceFlowContent> =
             assistanceType: 'Food assistance / emergency food pack',
             situation: 'Wala nang makakain ang pamilya at kailangan ng agarang suplay ng pagkain',
             priority: 'Kailangan ng tulong — food assistance',
-            address: 'Pala-o, Iligan City, Lanao del Norte',
-            coordinates: '8.2280° N, 124.2452° E',
+            address: 'DOST Compound, Central Bicutan, Taguig City',
+            coordinates: '14.525347° N, 121.059675° E',
         },
         transcriptLines: ['Kailangan ko ng pagkain', 'Kasi wala na kami makakain'],
         transcript: 'Kailangan ko ng pagkain kasi wala na kami makakain.',
         reviewTitle: 'Suriin ang request para sa tulong',
-        agencyName: 'Iligan City LGU / CDRRMO',
+        agencyName: 'Taguig City LGU / DRRMO',
         guidance: [
             'Manatili muna kung nasaan ka, kung ligtas ang lugar.',
             'Hintayin ang tawag o responder mula sa LGU.',
@@ -81,13 +83,13 @@ const assistanceFlowContent: Record<AssistanceFlowMode, AssistanceFlowContent> =
             assistanceType: 'Emergency rescue at trauma medical response',
             situation: 'May bakal na tumusok at nakabaon sa tagiliran; malakas ang pagdurugo at hindi makagalaw',
             priority: 'KRITIKAL — agarang saklolo',
-            address: 'Pala-o, Iligan City, Lanao del Norte',
-            coordinates: '8.2280° N, 124.2452° E',
+            address: 'DOST Compound, Central Bicutan, Taguig City',
+            coordinates: '14.525347° N, 121.059675° E',
         },
         transcriptLines: ['May bakal sa tagiliran ko', 'Tulong'],
         transcript: 'May bakal sa tagiliran ko. Tulong.',
         reviewTitle: 'Kumpirmahin ang agarang rescue request',
-        agencyName: 'Iligan City CDRRMO / Emergency Medical Services',
+        agencyName: 'Taguig City DRRMO / Emergency Medical Services',
         guidance: [
             'Huwag alisin o galawin ang nakabaong bagay.',
             "Manatiling hindi gumagalaw hangga't maaari.",
@@ -156,8 +158,8 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
     const [visibleParseLineCount, setVisibleParseLineCount] = useState(0);
     const [parsedData, setParsedData] = useState<ParsedAssistanceData>(defaultContent.initialData);
     const [matchedResponse, setMatchedResponse] = useState<AssistanceResponseSeed | null>(null);
-    const [capturedTranscript, setCapturedTranscript] = useState(defaultContent.transcript);
-    const [transcriptLines, setTranscriptLines] = useState<readonly [string, string]>(defaultContent.transcriptLines);
+    const [capturedTranscript, setCapturedTranscript] = useState('');
+    const [transcriptLines, setTranscriptLines] = useState<readonly [string, string]>(['', '']);
     const [attachment, setAttachment] = useState<File | null>(null);
     const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState<string | null>(null);
     const [typedMessage, setTypedMessage] = useState('');
@@ -165,6 +167,9 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
     const [isSpeechRecognitionSupported, setIsSpeechRecognitionSupported] = useState(false);
     const [speechError, setSpeechError] = useState<string | null>(null);
     const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+    const silenceTimerRef = useRef<number | null>(null);
+    const latestTranscriptRef = useRef('');
+    const shouldContinueListeningRef = useRef(false);
     const resolvedMode = matchedResponse?.mode ?? mode;
     const isUrgent = resolvedMode === 'rescue';
     const reviewTitle =
@@ -177,20 +182,6 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
     const guidance = matchedResponse?.guidance ?? defaultContent.guidance;
 
     useEffect(() => {
-        if (step === 'listening') {
-            const voiceRevealDelays = [1200, 3500];
-            const parseRevealDelays = [6000, 8500, 11000, 14000, 17000];
-            const voiceRevealTimers = voiceRevealDelays.map((delay, index) => window.setTimeout(() => setVisibleVoiceLineCount(index + 1), delay));
-            const parseRevealTimers = parseRevealDelays.map((delay, index) => window.setTimeout(() => setVisibleParseLineCount(index + 1), delay));
-            const reviewTimer = window.setTimeout(() => setStep('review'), 20000);
-
-            return () => {
-                voiceRevealTimers.forEach((timer) => window.clearTimeout(timer));
-                parseRevealTimers.forEach((timer) => window.clearTimeout(timer));
-                window.clearTimeout(reviewTimer);
-            };
-        }
-
         if (step === 'sending') {
             const guidanceTimer = window.setTimeout(() => setStep('guidance'), 3000);
 
@@ -206,12 +197,27 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
         };
     }, [attachmentPreviewUrl]);
 
+    const clearSilenceTimer = useCallback((): void => {
+        if (silenceTimerRef.current !== null) {
+            window.clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+        }
+    }, []);
+
     function updateParsedData(field: keyof ParsedAssistanceData, value: string): void {
         setParsedData((currentData) => ({ ...currentData, [field]: value }));
     }
 
     function repeatListening(): void {
+        shouldContinueListeningRef.current = false;
+        clearSilenceTimer();
         recognitionRef.current?.stop();
+        latestTranscriptRef.current = '';
+        setCapturedTranscript('');
+        setTranscriptLines(['', '']);
+        setTypedMessage('');
+        setMatchedResponse(null);
+        setParsedData(defaultContent.initialData);
         setVisibleVoiceLineCount(0);
         setVisibleParseLineCount(0);
         setSpeechError(null);
@@ -235,27 +241,46 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
         setAttachmentPreviewUrl(null);
     }
 
-    function applyMessage(message: string): void {
-        if (message === '') {
-            return;
-        }
+    const applyMessage = useCallback(
+        (message: string): void => {
+            if (message === '') {
+                return;
+            }
 
-        const response = findAssistanceResponseSeed(message);
+            shouldContinueListeningRef.current = false;
+            clearSilenceTimer();
+            recognitionRef.current?.stop();
+            setIsListening(false);
 
-        setCapturedTranscript(message);
-        setTranscriptLines(createTranscriptLines(message));
-        setMatchedResponse(response ?? null);
-        setParsedData(response === undefined ? { ...defaultContent.initialData, situation: message } : createParsedAssistanceData(response));
-        setVisibleVoiceLineCount(2);
-        setVisibleParseLineCount(5);
-        setStep('review');
-    }
+            const response = findAssistanceResponseSeed(message);
+
+            setCapturedTranscript(message);
+            setTranscriptLines(createTranscriptLines(message));
+            setMatchedResponse(response ?? null);
+            setParsedData(response === undefined ? { ...defaultContent.initialData, situation: message } : createParsedAssistanceData(response));
+            setVisibleVoiceLineCount(2);
+            setVisibleParseLineCount(5);
+            setStep('review');
+        },
+        [clearSilenceTimer, defaultContent.initialData],
+    );
 
     function useTypedMessage(): void {
         applyMessage(typedMessage.trim());
     }
 
-    function startSpeechRecognition(): void {
+    const scheduleSilenceReview = useCallback(
+        (transcript: string): void => {
+            latestTranscriptRef.current = transcript;
+            clearSilenceTimer();
+            silenceTimerRef.current = window.setTimeout(() => {
+                applyMessage(latestTranscriptRef.current.trim());
+            }, silenceTimeoutMs);
+        },
+        [applyMessage, clearSilenceTimer],
+    );
+
+    const startSpeechRecognition = useCallback((): void => {
         const speechWindow = window as SpeechRecognitionWindow;
         const SpeechRecognitionConstructor = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
 
@@ -264,20 +289,20 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
             return;
         }
 
+        shouldContinueListeningRef.current = false;
+        clearSilenceTimer();
         recognitionRef.current?.stop();
+        latestTranscriptRef.current = '';
 
         const recognition = new SpeechRecognitionConstructor();
-        recognition.continuous = false;
+        recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'fil-PH';
         recognition.onresult = (event) => {
             let spokenText = '';
-            let hasFinalResult = false;
 
             for (let index = 0; index < event.results.length; index += 1) {
-                const result = event.results[index];
-                spokenText += result[0].transcript;
-                hasFinalResult = hasFinalResult || result.isFinal;
+                spokenText += event.results[index][0].transcript;
             }
 
             const normalizedSpokenText = spokenText.trim();
@@ -285,16 +310,24 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                 return;
             }
 
+            const liveResponse = findAssistanceResponseSeed(normalizedSpokenText);
+
             setTypedMessage(normalizedSpokenText);
             setCapturedTranscript(normalizedSpokenText);
             setTranscriptLines(createTranscriptLines(normalizedSpokenText));
+            setMatchedResponse(liveResponse ?? null);
+            setParsedData(
+                liveResponse === undefined
+                    ? { ...defaultContent.initialData, situation: normalizedSpokenText }
+                    : createParsedAssistanceData(liveResponse),
+            );
             setVisibleVoiceLineCount(2);
-
-            if (hasFinalResult) {
-                applyMessage(normalizedSpokenText);
-            }
+            setVisibleParseLineCount(5);
+            scheduleSilenceReview(normalizedSpokenText);
         };
         recognition.onerror = (event) => {
+            shouldContinueListeningRef.current = false;
+            clearSilenceTimer();
             setIsListening(false);
             setSpeechError(
                 event.error === 'not-allowed'
@@ -302,20 +335,46 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                     : 'Hindi malinaw ang audio. Subukan ulit o gamitin ang manual input.',
             );
         };
-        recognition.onend = () => setIsListening(false);
+        recognition.onend = () => {
+            setIsListening(false);
+
+            if (shouldContinueListeningRef.current && latestTranscriptRef.current === '') {
+                setSpeechError('Walang narinig. Pindutin ang microphone para subukan ulit o gamitin ang manual input.');
+            }
+        };
 
         recognitionRef.current = recognition;
+        shouldContinueListeningRef.current = true;
         setSpeechError(null);
         setIsListening(true);
-        recognition.start();
-    }
+
+        try {
+            recognition.start();
+        } catch {
+            shouldContinueListeningRef.current = false;
+            setIsListening(false);
+            setSpeechError('Hindi masimulan ang microphone. Pindutin ang microphone para subukan ulit.');
+        }
+    }, [clearSilenceTimer, defaultContent.initialData, scheduleSilenceReview]);
 
     useEffect(() => {
         const speechWindow = window as SpeechRecognitionWindow;
-        setIsSpeechRecognitionSupported(speechWindow.SpeechRecognition !== undefined || speechWindow.webkitSpeechRecognition !== undefined);
+        const isSupported = speechWindow.SpeechRecognition !== undefined || speechWindow.webkitSpeechRecognition !== undefined;
+        setIsSpeechRecognitionSupported(isSupported);
 
-        return () => recognitionRef.current?.stop();
-    }, []);
+        if (step !== 'listening' || !isSupported) {
+            return;
+        }
+
+        const autoStartTimer = window.setTimeout(startSpeechRecognition, 150);
+
+        return () => {
+            window.clearTimeout(autoStartTimer);
+            shouldContinueListeningRef.current = false;
+            clearSilenceTimer();
+            recognitionRef.current?.stop();
+        };
+    }, [clearSilenceTimer, startSpeechRecognition, step]);
 
     if (step === 'listening') {
         return (
@@ -338,7 +397,9 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                             : 'Nakikinig sa iyong kailangan...'
                         : 'Handang makinig sa iyong sitwasyon'}
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-500">Magsalita nang malinaw at ilarawan ang iyong sitwasyon.</p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                    Awtomatikong nakikinig. Pag tumigil kang magsalita nang 5 segundo, ipapakita ang mungkahing response.
+                </p>
                 <button
                     type="button"
                     disabled={isListening || !isSpeechRecognitionSupported}
@@ -350,7 +411,7 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                     ) : (
                         <Mic className="size-4" aria-hidden="true" />
                     )}
-                    {isListening ? 'Nakikinig...' : 'Simulan ang speech-to-text'}
+                    {isListening ? 'Live speech-to-text...' : 'Subukan ulit ang microphone'}
                 </button>
                 {speechError !== null && <p className="mt-2 text-xs font-semibold text-red-600">{speechError}</p>}
                 {!isSpeechRecognitionSupported && speechError === null && (
@@ -370,6 +431,17 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                             <VoiceTranscriptLine index={2} visibleLineCount={visibleVoiceLineCount} text={transcriptLines[1]} isUrgent={isUrgent} />
                         )}
                     </div>
+                    {capturedTranscript !== '' && (
+                        <div className="mt-3 rounded-xl bg-white/75 px-3 py-2.5 text-xs font-bold">
+                            {matchedResponse === null ? (
+                                <span className="text-slate-500">Nakikinig para sa assistance keyword...</span>
+                            ) : (
+                                <span className={isUrgent ? 'text-red-700' : 'text-orange-700'}>
+                                    Suggested response: {matchedResponse.label} — {matchedResponse.data.assistanceType}
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="mt-3 min-h-52 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm">
@@ -419,7 +491,11 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                     ) : (
                         <Sparkles className="size-4" aria-hidden="true" />
                     )}
-                    {isListening ? 'Listening and analyzing your request...' : 'Magsalita o pumili ng sample sa ibaba.'}
+                    {isListening
+                        ? capturedTranscript === ''
+                            ? 'Listening for your response...'
+                            : 'Waiting for 5 seconds of silence...'
+                        : 'Magsalita muli o gamitin ang manual input sa ibaba.'}
                 </div>
 
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm">

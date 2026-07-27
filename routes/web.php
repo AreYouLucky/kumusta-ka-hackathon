@@ -1,14 +1,14 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
+use App\Http\Controllers\Citizen\CitizenPageController;
+use App\Http\Controllers\Citizen\SafetyCircleController;
 use App\Http\Controllers\GCC\AffectedResidentController;
 use App\Http\Controllers\GCC\DisasterIncidentController;
 use App\Http\Controllers\GCC\GCCDashboardController;
 use App\Http\Controllers\GCC\ResidenceController;
-use App\Http\Controllers\Citizen\CitizenPageController;
-use App\Http\Controllers\Citizen\SafetyCircleController;
 use App\Http\Controllers\Responder\ResponderRequestController;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -40,6 +40,8 @@ Route::prefix('frontend')->middleware('citizen.auth')->name('citizen.')->group(f
     Route::get('/circles/create', [CitizenPageController::class, 'create'])->name('circles.create');
     Route::post('/circles', [SafetyCircleController::class, 'store'])->name('circles.store');
     Route::get('/circles/{circle}', [CitizenPageController::class, 'show'])->name('circles.show');
+    Route::post('/circles/{circle}/members', [SafetyCircleController::class, 'addMember'])
+        ->name('circles.members.store');
     Route::patch('/circles/{circle}/members/{member}/status', [SafetyCircleController::class, 'updateStatus'])
         ->name('circles.members.status');
     Route::patch('/check-in', [SafetyCircleController::class, 'checkIn'])->name('check-in');
@@ -47,7 +49,6 @@ Route::prefix('frontend')->middleware('citizen.auth')->name('citizen.')->group(f
     Route::get('/advisory', [CitizenPageController::class, 'advisory'])->name('advisory');
     Route::get('/profile', [CitizenPageController::class, 'profile'])->name('profile');
 });
-
 
 Route::prefix('gcc')->middleware('auth', 'role:gcc,administrator')->group(function () {
 
@@ -75,6 +76,5 @@ Route::prefix('responder')->middleware('auth', 'role:responder')->name('responde
     Route::patch('/requests/{member}', [ResponderRequestController::class, 'update'])->name('requests.update');
 });
 
-
-require __DIR__ . '/settings.php';
-require __DIR__ . '/auth.php';
+require __DIR__.'/settings.php';
+require __DIR__.'/auth.php';

@@ -5,16 +5,30 @@ namespace App\Http\Controllers\GCC;
 use App\Http\Controllers\Controller;
 use App\Models\AffectedResident;
 use App\Models\DisasterIncident;
+use App\Services\DisasterCircleService;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class AffectedResidentController extends Controller
 {
+    public function __construct(private DisasterCircleService $disasterCircleService) {}
+
     public function index(): Response
     {
+        $this->disasterCircleService->syncActiveAffectedCircleMembers();
+
         $incidentGroups = DisasterIncident::query()
-            ->with(['affectedResidents' => fn ($query) => $query->with('residence')->latest()])
+            ->with(['affectedResidents' => fn ($query) => $query
+                ->with('residence')
+                ->orderByRaw("
+                    CASE
+                        WHEN circle_safety_status = 'rescue' AND status <> 'rescued' THEN 0
+                        WHEN circle_safety_status = 'help' AND status <> 'rescued' THEN 1
+                        ELSE 2
+                    END
+                ")
+                ->latest()])
             ->withCount('affectedResidents')
             ->has('affectedResidents')
             ->latest()
@@ -36,6 +50,14 @@ class AffectedResidentController extends Controller
                 'pregnant_count' => $incident->affectedResidents->filter(fn (AffectedResident $resident) => $resident->residence?->is_pregnant)->count(),
                 'health_problem_count' => $incident->affectedResidents->filter(fn (AffectedResident $resident) => $resident->residence?->has_health_problem)->count(),
                 'evacuated_count' => $incident->affectedResidents->where('status', 'evacuated')->count(),
+                'no_response_count' => $incident->affectedResidents
+                    ->filter(fn (AffectedResident $resident) => $resident->hasNoResponse())
+                    ->count(),
+                'needs_help_count' => $incident->affectedResidents->where('circle_safety_status', 'help')->count(),
+                'urgent_rescue_count' => $incident->affectedResidents
+                    ->where('circle_safety_status', 'rescue')
+                    ->where('status', '!=', 'rescued')
+                    ->count(),
                 'residents' => $incident->affectedResidents->map(fn (AffectedResident $resident) => [
                     'id' => $resident->id,
                     'full_name' => collect([
@@ -51,6 +73,11 @@ class AffectedResidentController extends Controller
                     'city' => $resident->residence?->city ?? $resident->city,
                     'status' => $resident->status,
                     'resident_status' => $resident->resident_status,
+                    'circle_safety_status' => $resident->circle_safety_status,
+                    'is_no_response' => $resident->hasNoResponse(),
+                    'assistance_type' => $resident->assistance_type,
+                    'situation' => $resident->situation,
+                    'priority' => $resident->priority,
                     'is_pwd' => (bool) $resident->residence?->is_pwd,
                     'is_pregnant' => (bool) $resident->residence?->is_pregnant,
                     'has_health_problem' => (bool) $resident->residence?->has_health_problem,
@@ -71,24 +98,26 @@ class AffectedResidentController extends Controller
                 'pregnant' => $residents->where('is_pregnant', true)->count(),
                 'health_problem' => $residents->where('has_health_problem', true)->count(),
                 'evacuated' => $residents->where('status', 'evacuated')->count(),
+                'no_response' => $residents->where('is_no_response', true)->count(),
+                'needs_help' => $residents->where('circle_safety_status', 'help')->count(),
+                'urgent_rescue' => $residents
+                    ->where('circle_safety_status', 'rescue')
+                    ->where('status', '!=', 'rescued')
+                    ->count(),
             ],
         ]);
     }
 
     public function markSafe(AffectedResident $affectedResident): RedirectResponse
     {
-        $affectedResident->update([
-            'resident_status' => 1,
-        ]);
+        $this->disasterCircleService->markAffectedResidentSafe($affectedResident);
 
         return back();
     }
 
     public function dispatchResponder(AffectedResident $affectedResident): RedirectResponse
     {
-        $affectedResident->update([
-            'resident_status' => 3,
-        ]);
+        $this->disasterCircleService->dispatchAffectedResidentResponder($affectedResident);
 
         return back();
     }

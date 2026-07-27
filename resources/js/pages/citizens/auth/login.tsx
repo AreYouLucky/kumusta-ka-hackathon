@@ -42,7 +42,7 @@ export default function Login(): JSX.Element {
                         <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
                                 <span className="grid size-12 place-items-center overflow-hidden rounded-2xl bg-white shadow-lg">
-                                    <img src="/assets/images/kumusta.png" alt="Kumusta Ka logo" className="size-10 object-contain" />
+                                    <img src="/storage/images/kumusta.png" alt="Kumusta Ka logo" className="size-10 object-contain" />
                                 </span>
                                 <div>
                                     <p className="text-lg font-black tracking-tight">Kumusta Ka</p>

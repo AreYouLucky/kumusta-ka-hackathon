@@ -6,20 +6,27 @@ use App\Http\Controllers\Controller;
 use App\Models\AffectedResident;
 use App\Models\DisasterIncident;
 use App\Models\Residence;
+use App\Services\DisasterCircleService;
+use App\Support\GeoDistance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class DisasterIncidentController extends Controller
 {
+    public function __construct(private DisasterCircleService $disasterCircleService) {}
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $this->validatedIncident($request);
 
-        DisasterIncident::create([
+        $incident = DisasterIncident::create([
             ...$validated,
             'created_by' => $request->user()?->id,
-            'status' => 'open',
+            'status' => 'monitoring',
         ]);
+
+        $this->createAffectedResidentsForIncident($incident, $request->user()?->id);
+        $this->disasterCircleService->activate($incident);
 
         return back();
     }
@@ -32,6 +39,7 @@ class DisasterIncidentController extends Controller
 
         if ($previousStatus !== 'monitoring' && $incident->status === 'monitoring') {
             $this->createAffectedResidentsForIncident($incident, $request->user()?->id);
+            $this->disasterCircleService->activate($incident);
         }
 
         return back();
@@ -39,23 +47,28 @@ class DisasterIncidentController extends Controller
 
     private function createAffectedResidentsForIncident(DisasterIncident $incident, ?int $createdBy): void
     {
+        $latitude = (float) $incident->latitude;
+        $longitude = (float) $incident->longitude;
+        $latitudeRange = $incident->radius_meters / 111_320;
+        $longitudeDivisor = 111_320 * max(0.01, cos(deg2rad($latitude)));
+        $longitudeRange = $incident->radius_meters / $longitudeDivisor;
+
         Residence::query()
-            ->selectRaw('*, (
-                6371000 * acos(
-                    cos(radians(?)) *
-                    cos(radians(latitude)) *
-                    cos(radians(longitude) - radians(?)) +
-                    sin(radians(?)) *
-                    sin(radians(latitude))
-                )
-            ) as distance_meters', [
-                $incident->latitude,
-                $incident->longitude,
-                $incident->latitude,
-            ])
-            ->having('distance_meters', '<=', $incident->radius_meters)
+            ->whereBetween('latitude', [$latitude - $latitudeRange, $latitude + $latitudeRange])
+            ->whereBetween('longitude', [$longitude - $longitudeRange, $longitude + $longitudeRange])
             ->chunkById(200, function ($residences) use ($incident, $createdBy): void {
                 foreach ($residences as $residence) {
+                    $distance = GeoDistance::meters(
+                        (float) $incident->latitude,
+                        (float) $incident->longitude,
+                        (float) $residence->latitude,
+                        (float) $residence->longitude,
+                    );
+
+                    if ($distance > $incident->radius_meters) {
+                        continue;
+                    }
+
                     AffectedResident::updateOrCreate(
                         [
                             'disaster_incident_id' => $incident->id,

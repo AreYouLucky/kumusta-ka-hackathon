@@ -1,8 +1,9 @@
 import { Link } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, ChevronRight, CircleAlert, Clock3, MapPin, Siren, UsersRound } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, Clock3, MapPin, Siren, UsersRound } from 'lucide-react';
 import type { JSX } from 'react';
 
 import type { SafetyCircle } from '../types';
+import { CircleCalamityStatus } from './circle-calamity-status';
 
 type SafetyCircleCardProps = {
     circle: SafetyCircle;
@@ -11,7 +12,7 @@ type SafetyCircleCardProps = {
 const avatarColors = ['bg-sky-600', 'bg-violet-600', 'bg-teal-700', 'bg-slate-600'];
 
 export function SafetyCircleCard({ circle }: SafetyCircleCardProps): JSX.Element {
-    const hasUnresponsiveMember = circle.notRespondingCount > 0;
+    const hasHelpRequest = circle.helpCount > 0;
     const hasUrgentAssistance = circle.urgentAssistanceCount > 0;
 
     return (
@@ -43,16 +44,23 @@ export function SafetyCircleCard({ circle }: SafetyCircleCardProps): JSX.Element
                     <span className="truncate">{circle.location}</span>
                 </div>
 
+                <CircleCalamityStatus status={circle.calamityStatus} compact />
+
                 <div className="mt-3 flex flex-col gap-2">
                     <div className="flex w-fit items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-700">
                         <CheckCircle2 className="size-4" aria-hidden="true" />
                         {circle.safeCount} Ligtas Ako
                     </div>
 
-                    {hasUnresponsiveMember && (
+                    <div className="flex w-fit items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                        <Clock3 className="size-4" aria-hidden="true" />
+                        {circle.notRespondingCount} No response yet
+                    </div>
+
+                    {hasHelpRequest && (
                         <div className="flex w-fit items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-700">
                             <AlertTriangle className="size-4" aria-hidden="true" />
-                            {circle.notRespondingCount} Kailangan Ko ng Tulong
+                            {circle.helpCount} Kailangan Ko ng Tulong
                         </div>
                     )}
 
@@ -63,36 +71,6 @@ export function SafetyCircleCard({ circle }: SafetyCircleCardProps): JSX.Element
                         </div>
                     )}
                 </div>
-
-                {circle.alert && (
-                    <div className="mt-[18px] rounded-xl border border-orange-200 bg-orange-50 p-4">
-                        <div className="flex items-center gap-2.5">
-                            <div className="grid size-[38px] shrink-0 place-items-center rounded-[10px] bg-red-500 text-white">
-                                <CircleAlert className="size-[22px]" aria-hidden="true" />
-                            </div>
-
-                            <div>
-                                <span className="inline-flex h-[22px] items-center rounded-full bg-red-100 px-2 text-[10px] font-extrabold tracking-wider text-red-700">
-                                    {circle.alert.label}
-                                </span>
-                                <h3 className="mt-1 text-[15px] font-extrabold text-black">{circle.alert.title}</h3>
-                            </div>
-                        </div>
-
-                        <p className="mt-3 text-xs leading-relaxed text-slate-600 sm:text-[13px]">{circle.alert.description}</p>
-
-                        <div className="mt-3 flex flex-col gap-2 text-xs text-orange-800">
-                            <div className="flex items-center gap-1.5 font-semibold">
-                                <MapPin className="size-4 shrink-0" aria-hidden="true" />
-                                <span>{circle.alert.location}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                                <Clock3 className="size-4 shrink-0" aria-hidden="true" />
-                                <span>{circle.alert.reportedAt}</span>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 <div className="mt-[18px] flex -space-x-2">
                     {circle.avatarLabels.map((label, index) => (

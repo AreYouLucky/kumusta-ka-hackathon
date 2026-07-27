@@ -13,6 +13,7 @@ class AffectedResident extends Model
     protected $fillable = [
         'disaster_incident_id',
         'residence_id',
+        'safety_circle_member_id',
         'created_by',
         'household_number',
         'first_name',
@@ -29,6 +30,10 @@ class AffectedResident extends Model
         'evacuation_center',
         'status',
         'resident_status',
+        'circle_safety_status',
+        'assistance_type',
+        'situation',
+        'priority',
         'medical_notes',
     ];
 
@@ -47,8 +52,19 @@ class AffectedResident extends Model
         return $this->belongsTo(Residence::class);
     }
 
+    public function safetyCircleMember(): BelongsTo
+    {
+        return $this->belongsTo(SafetyCircleMember::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function hasNoResponse(): bool
+    {
+        return $this->circle_safety_status === 'no_response'
+            || ($this->circle_safety_status === null && $this->resident_status === 0);
     }
 }

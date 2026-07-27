@@ -20,8 +20,8 @@ export type AssistanceResponseSeed = {
 };
 
 const DEFAULT_LOCATION = {
-    address: 'Pala-o, Iligan City, Lanao del Norte',
-    coordinates: '8.2280° N, 124.2452° E',
+    address: 'DOST Compound, Central Bicutan, Taguig City',
+    coordinates: '14.525347° N, 121.059675° E',
 } as const;
 
 export const assistanceResponseSeeds: readonly AssistanceResponseSeed[] = [
@@ -36,7 +36,7 @@ export const assistanceResponseSeeds: readonly AssistanceResponseSeed[] = [
             situation: 'May taong nasugatan at nangangailangan ng agarang paunang lunas',
             priority: 'MATAAS — kailangang ma-assess agad ng medical responder',
         },
-        agencyName: 'Iligan City CDRRMO / Emergency Medical Services',
+        agencyName: 'Taguig City DRRMO / Emergency Medical Services',
         guidance: [
             'Ilayo ang nasugatan sa panganib kung ligtas itong gawin.',
             'Diinan ng malinis na tela ang sugat kung may pagdurugo.',
@@ -55,7 +55,7 @@ export const assistanceResponseSeeds: readonly AssistanceResponseSeed[] = [
             situation: 'Wala nang makakain ang pamilya at kailangan ng agarang suplay ng pagkain',
             priority: 'Kailangan ng tulong — food assistance',
         },
-        agencyName: 'Iligan City LGU / CDRRMO',
+        agencyName: 'Taguig City LGU / DRRMO',
         guidance: [
             'Manatili muna sa ligtas at madaling maabot na lugar.',
             'Ihanda ang bilang ng mga taong nangangailangan ng pagkain.',
@@ -74,7 +74,7 @@ export const assistanceResponseSeeds: readonly AssistanceResponseSeed[] = [
             situation: 'Kailangan ng pamilya ng malinis na damit at kumot matapos lumikas',
             priority: 'Kailangan ng tulong — clothing and relief assistance',
         },
-        agencyName: 'Iligan City CSWDO / CDRRMO',
+        agencyName: 'Taguig City CSWDO / DRRMO',
         guidance: [
             'Manatili sa evacuation area o ibang ligtas na lugar.',
             'Ihanda ang bilang at edad ng mga nangangailangan ng damit.',
@@ -93,7 +93,7 @@ export const assistanceResponseSeeds: readonly AssistanceResponseSeed[] = [
             situation: 'Mataas ang baha at may mga residenteng hindi makalikas nang ligtas',
             priority: 'KRITIKAL — agarang evacuation at flood rescue',
         },
-        agencyName: 'Iligan City CDRRMO / Search and Rescue',
+        agencyName: 'Taguig City DRRMO / Search and Rescue',
         guidance: [
             'Pumunta sa pinakamataas at matibay na bahagi ng gusali.',
             'Patayin ang main switch ng kuryente kung ligtas itong maabot.',
@@ -112,7 +112,7 @@ export const assistanceResponseSeeds: readonly AssistanceResponseSeed[] = [
             situation: 'May taong natabunan o naipit sa gumuhong istruktura at hindi makalabas',
             priority: 'KRITIKAL — agarang search and rescue',
         },
-        agencyName: 'Iligan City CDRRMO / Urban Search and Rescue',
+        agencyName: 'Taguig City DRRMO / Urban Search and Rescue',
         guidance: [
             'Huwag galawin ang malalaking debris na maaaring magdulot ng panibagong pagguho.',
             'Tawagin ang pangalan ng natabunan at alamin kung nakakasagot.',

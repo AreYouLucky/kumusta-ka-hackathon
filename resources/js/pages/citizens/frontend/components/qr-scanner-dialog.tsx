@@ -1,18 +1,27 @@
 import { Camera, CameraOff, LoaderCircle, QrCode, X } from 'lucide-react';
+import QrScanner from 'qr-scanner';
 import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 type QrScannerDialogProps = {
     isOpen: boolean;
     onClose: () => void;
-    onMemberDetected: () => void;
+    onMemberDetected: (memberCode: string) => void;
+    error?: string;
+    isProcessing?: boolean;
 };
 
 type CameraState = 'starting' | 'ready' | 'unavailable';
 
-export function QrScannerDialog({ isOpen, onClose }: QrScannerDialogProps): JSX.Element | null {
+export function QrScannerDialog({ isOpen, onClose, onMemberDetected, error, isProcessing = false }: QrScannerDialogProps): JSX.Element | null {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [cameraState, setCameraState] = useState<CameraState>('starting');
+    const [scanMessage, setScanMessage] = useState<string | null>(null);
+    const onMemberDetectedRef = useRef(onMemberDetected);
+
+    useEffect(() => {
+        onMemberDetectedRef.current = onMemberDetected;
+    }, [onMemberDetected]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -20,34 +29,44 @@ export function QrScannerDialog({ isOpen, onClose }: QrScannerDialogProps): JSX.
         }
 
         let isActive = true;
-        let cameraStream: MediaStream | null = null;
         const videoElement = videoRef.current;
+        let scanner: QrScanner | null = null;
 
         async function startCamera(): Promise<void> {
             setCameraState('starting');
+            setScanMessage(null);
 
-            if (!navigator.mediaDevices?.getUserMedia) {
+            if (!videoElement || !navigator.mediaDevices?.getUserMedia) {
                 setCameraState('unavailable');
                 return;
             }
 
             try {
-                cameraStream = await navigator.mediaDevices.getUserMedia({
-                    audio: false,
-                    video: { facingMode: { ideal: 'environment' } },
-                });
+                scanner = new QrScanner(
+                    videoElement,
+                    (result) => {
+                        if (!result.data.startsWith('KUMUSTAKA_MEMBER:')) {
+                            setScanMessage('That is not a Kumusta Ka member QR code.');
+                            return;
+                        }
 
-                if (!isActive) {
-                    cameraStream.getTracks().forEach((track) => track.stop());
-                    return;
+                        scanner?.stop();
+                        setScanMessage('Member found. Adding to the circle...');
+                        onMemberDetectedRef.current(result.data);
+                    },
+                    {
+                        preferredCamera: 'environment',
+                        highlightScanRegion: true,
+                        highlightCodeOutline: true,
+                        returnDetailedScanResult: true,
+                    },
+                );
+
+                await scanner.start();
+
+                if (isActive) {
+                    setCameraState('ready');
                 }
-
-                if (videoElement) {
-                    videoElement.srcObject = cameraStream;
-                    await videoElement.play();
-                }
-
-                setCameraState('ready');
             } catch {
                 if (isActive) {
                     setCameraState('unavailable');
@@ -59,11 +78,8 @@ export function QrScannerDialog({ isOpen, onClose }: QrScannerDialogProps): JSX.
 
         return () => {
             isActive = false;
-            cameraStream?.getTracks().forEach((track) => track.stop());
-
-            if (videoElement) {
-                videoElement.srcObject = null;
-            }
+            scanner?.stop();
+            scanner?.destroy();
         };
     }, [isOpen]);
 
@@ -129,10 +145,18 @@ export function QrScannerDialog({ isOpen, onClose }: QrScannerDialogProps): JSX.
                             {cameraState === 'starting'
                                 ? 'Opening camera...'
                                 : cameraState === 'ready'
-                                  ? 'Scanning for QR code'
+                                  ? isProcessing
+                                      ? 'Adding member...'
+                                      : 'Scanning for QR code'
                                   : 'Camera unavailable'}
                         </span>
                     </div>
+
+                    {(scanMessage || error) && (
+                        <div className="absolute inset-x-4 bottom-5 rounded-xl bg-black/70 px-4 py-3 text-center text-xs font-bold text-white backdrop-blur">
+                            {error ?? scanMessage}
+                        </div>
+                    )}
 
                     {cameraState === 'unavailable' && (
                         <div className="absolute inset-0 grid place-items-center px-8 text-center">

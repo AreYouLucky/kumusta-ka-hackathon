@@ -25,6 +25,15 @@ export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    activeDisaster?: {
+        id: number;
+        title: string;
+        hazardType: string;
+        severity: string;
+        location: string;
+        description: string | null;
+        reportedAt: string;
+    } | null;
     [key: string]: unknown;
 }
 

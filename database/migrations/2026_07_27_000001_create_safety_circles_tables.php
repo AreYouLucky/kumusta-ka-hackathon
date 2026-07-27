@@ -26,7 +26,7 @@ return new class extends Migration
             $table->foreignId('safety_circle_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('relationship', 50)->default('Member');
-            $table->enum('safety_status', ['safe', 'help', 'rescue'])->default('safe');
+            $table->enum('safety_status', ['no_response', 'safe', 'help', 'rescue'])->default('safe');
             $table->enum('response_status', ['forwarded_to_lgu', 'responders_dispatched'])->nullable();
             $table->timestamp('checked_in_at')->nullable();
             $table->timestamps();

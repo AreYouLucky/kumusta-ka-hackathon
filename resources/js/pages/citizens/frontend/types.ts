@@ -1,10 +1,13 @@
-export interface DisasterAlert {
+export type CircleCalamityStatus = {
+    isAffected: boolean;
     label: string;
     title: string;
     description: string;
     location: string;
     reportedAt: string;
-}
+    hazardType?: string;
+    severity?: string;
+};
 
 export interface SafetyCircle {
     id: number;
@@ -13,12 +16,15 @@ export interface SafetyCircle {
     location: string;
     safeCount: number;
     notRespondingCount: number;
+    helpCount: number;
     urgentAssistanceCount: number;
     avatarLabels: string[];
-    alert?: DisasterAlert;
+    calamityStatus: CircleCalamityStatus;
 }
 
-export type MemberSafetyStatus = 'safe' | 'help' | 'rescue';
+export type MemberSafetyStatus = 'no_response' | 'safe' | 'help' | 'rescue';
+
+export type MemberCheckInStatus = Exclude<MemberSafetyStatus, 'no_response'>;
 
 export type MemberResponseStatus = 'forwarded_to_lgu' | 'responders_dispatched';
 
@@ -28,7 +34,7 @@ export type SafetyCircleMember = {
     initials: string;
     relationship: string;
     status: MemberSafetyStatus;
-    responseStatus?: MemberResponseStatus;
+    responseStatus?: MemberResponseStatus | null;
     updatedAt: string;
     isCurrentUser?: boolean;
 };
@@ -39,7 +45,17 @@ export type SafetyCircleDetails = {
     description: string;
     location: string;
     members: SafetyCircleMember[];
-    alert?: DisasterAlert;
+    calamityStatus: CircleCalamityStatus;
+};
+
+export type CitizenDisasterAlert = {
+    id: number;
+    title: string;
+    hazardType: string;
+    severity: string;
+    location: string;
+    description: string | null;
+    reportedAt: string;
 };
 
 export type StatusTone = 'safe' | 'warning' | 'danger';

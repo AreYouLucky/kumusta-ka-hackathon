@@ -9,7 +9,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
 import L from 'leaflet';
-import { AlertTriangle, Ambulance, Bell, Building2, Clock, Crosshair, Pencil, Radio, ShieldAlert, Users } from 'lucide-react';
+import {  Ambulance, Bell, Building2, Clock, Crosshair, Pencil, ShieldAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 
@@ -77,7 +77,9 @@ export default function DisasterMap({ incidents = [] }: { incidents?: DisasterIn
                         <CardHeader className="flex flex-row items-center justify-between gap-3 border-b">
                             <div>
                                 <CardTitle className="text-base">Philippines Disaster Operations Map</CardTitle>
-                                <p className="text-sm text-muted-foreground">Tap the map to save a disaster pin with radius and details.</p>
+                                <p className="text-muted-foreground text-sm">
+                                    Tap the map to save a disaster pin and immediately alert citizens inside its radius.
+                                </p>
                             </div>
                             <Badge variant="secondary" className="gap-2">
                                 <Crosshair className="size-4" />
@@ -100,17 +102,21 @@ export default function DisasterMap({ incidents = [] }: { incidents?: DisasterIn
                                         <div key={incident.id} className="rounded-md border p-3">
                                             <div className="flex items-center justify-between gap-3">
                                                 <div className="font-medium">{incident.title}</div>
-                                                <Badge variant={incident.severity === 'critical' ? 'destructive' : 'secondary'}>{incident.severity}</Badge>
+                                                <Badge variant={incident.severity === 'critical' ? 'destructive' : 'secondary'}>
+                                                    {incident.severity}
+                                                </Badge>
                                             </div>
-                                            <div className="mt-1 text-sm text-muted-foreground">{incident.location_name || 'Pinned map location'}</div>
-                                            <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                                            <div className="text-muted-foreground mt-1 text-sm">
+                                                {incident.location_name || 'Pinned map location'}
+                                            </div>
+                                            <div className="text-muted-foreground mt-2 flex items-center gap-1 text-xs">
                                                 <Clock className="size-3" />
                                                 {incident.created_at || incident.status}
                                             </div>
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                                    <div className="text-muted-foreground rounded-md border border-dashed p-4 text-sm">
                                         No disaster pins yet. Click the map to add the first incident.
                                     </div>
                                 )}
@@ -126,7 +132,7 @@ export default function DisasterMap({ incidents = [] }: { incidents?: DisasterIn
                                     <div key={unit.name} className="flex items-center justify-between rounded-md border p-3">
                                         <div>
                                             <div className="font-medium">{unit.name}</div>
-                                            <div className="text-sm text-muted-foreground">{unit.status}</div>
+                                            <div className="text-muted-foreground text-sm">{unit.status}</div>
                                         </div>
                                         <Badge>{unit.eta}</Badge>
                                     </div>
@@ -134,12 +140,6 @@ export default function DisasterMap({ incidents = [] }: { incidents?: DisasterIn
                             </CardContent>
                         </Card>
                     </div>
-                </section>
-
-                <section className="grid gap-4 lg:grid-cols-3">
-                    <ActionCard icon={Radio} title="Broadcast Alert" copy="Send public advisories to affected barangays." />
-                    <ActionCard icon={Users} title="Assign Responders" copy="Match teams to active incident locations." />
-                    <ActionCard icon={AlertTriangle} title="Escalate Disaster Level" copy="Flag incidents for city-wide coordination." />
                 </section>
             </div>
         </AppLayout>
@@ -243,9 +243,9 @@ function PhilippinesOperationsMap({ incidents }: { incidents: MapIncident[] }) {
 
     return (
         <div className="relative min-h-[520px] overflow-hidden bg-[#dff3f6]">
-            <div className="absolute left-4 top-4 z-10 rounded-lg border bg-white/90 p-3 text-xs shadow-sm backdrop-blur">
+            <div className="absolute top-4 left-4 z-10 rounded-lg border bg-white/90 p-3 text-xs shadow-sm backdrop-blur">
                 <div className="font-medium">Live Layers</div>
-                <div className="mt-2 grid gap-1 text-muted-foreground">
+                <div className="text-muted-foreground mt-2 grid gap-1">
                     <span>Incident pins</span>
                     <span>Hazard radius</span>
                     <span>Evacuation readiness</span>
@@ -294,13 +294,13 @@ function PhilippinesOperationsMap({ incidents }: { incidents: MapIncident[] }) {
                 </MapContainer>
             )}
 
-            <div className="absolute bottom-4 right-4 z-20 w-[min(340px,calc(100%-2rem))] rounded-lg border bg-white/95 p-4 shadow-sm backdrop-blur">
+            <div className="absolute right-4 bottom-4 z-20 w-[min(340px,calc(100%-2rem))] rounded-lg border bg-white/95 p-4 shadow-sm backdrop-blur">
                 {selectedPin ? (
                     <>
                         <div className="flex items-start justify-between gap-3">
                             <div>
                                 <div className="text-sm font-semibold">{selectedPin.title}</div>
-                                <div className="text-xs text-muted-foreground">{selectedPin.location_name || 'Pinned map location'}</div>
+                                <div className="text-muted-foreground text-xs">{selectedPin.location_name || 'Pinned map location'}</div>
                             </div>
                             <Badge variant={selectedPin.severity === 'critical' ? 'destructive' : 'secondary'}>{selectedPin.severity}</Badge>
                         </div>
@@ -326,7 +326,7 @@ function PhilippinesOperationsMap({ incidents }: { incidents: MapIncident[] }) {
                 ) : (
                     <div>
                         <div className="text-sm font-semibold">No disaster selected</div>
-                        <p className="mt-1 text-xs text-muted-foreground">Click anywhere on the map to add the first disaster pin.</p>
+                        <p className="text-muted-foreground mt-1 text-xs">Click anywhere on the map to add the first disaster pin.</p>
                     </div>
                 )}
             </div>
@@ -336,15 +336,22 @@ function PhilippinesOperationsMap({ incidents }: { incidents: MapIncident[] }) {
                     <DialogHeader>
                         <DialogTitle>{editingIncident ? 'Edit Disaster Pin' : 'Add Disaster Pin'}</DialogTitle>
                         <DialogDescription>
-                            {editingIncident ? 'Update the selected GCC incident marker.' : 'Save a GCC incident marker at the map point you selected.'}
+                            {editingIncident
+                                ? 'Update the selected GCC incident marker.'
+                                : 'Saving this pin immediately marks affected circle members as no response and sends their emergency check-in alert.'}
                         </DialogDescription>
                     </DialogHeader>
 
                     <form onSubmit={submitIncident} className="grid gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="title">Incident title</Label>
-                            <Input id="title" value={data.title} onChange={(event) => setData('title', event.target.value)} placeholder="Flooding near riverbank" />
-                            {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
+                            <Input
+                                id="title"
+                                value={data.title}
+                                onChange={(event) => setData('title', event.target.value)}
+                                placeholder="Flooding near riverbank"
+                            />
+                            {errors.title && <p className="text-destructive text-xs">{errors.title}</p>}
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2">
@@ -362,7 +369,7 @@ function PhilippinesOperationsMap({ incidents }: { incidents: MapIncident[] }) {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                {errors.hazard_type && <p className="text-xs text-destructive">{errors.hazard_type}</p>}
+                                {errors.hazard_type && <p className="text-destructive text-xs">{errors.hazard_type}</p>}
                             </div>
 
                             <div className="grid gap-2">
@@ -378,7 +385,7 @@ function PhilippinesOperationsMap({ incidents }: { incidents: MapIncident[] }) {
                                         <SelectItem value="critical">Critical</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                {errors.severity && <p className="text-xs text-destructive">{errors.severity}</p>}
+                                {errors.severity && <p className="text-destructive text-xs">{errors.severity}</p>}
                             </div>
                         </div>
 
@@ -391,12 +398,12 @@ function PhilippinesOperationsMap({ incidents }: { incidents: MapIncident[] }) {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="open">Open</SelectItem>
-                                        <SelectItem value="monitoring">Monitoring</SelectItem>
+                                        <SelectItem value="monitoring">Monitoring — Trigger citizen alert</SelectItem>
                                         <SelectItem value="dispatching">Dispatching</SelectItem>
                                         <SelectItem value="resolved">Resolved</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                {errors.status && <p className="text-xs text-destructive">{errors.status}</p>}
+                                {errors.status && <p className="text-destructive text-xs">{errors.status}</p>}
                             </div>
                         )}
 
@@ -412,13 +419,19 @@ function PhilippinesOperationsMap({ incidents }: { incidents: MapIncident[] }) {
                                     value={data.radius_meters}
                                     onChange={(event) => setData('radius_meters', Number(event.target.value))}
                                 />
-                                {errors.radius_meters && <p className="text-xs text-destructive">{errors.radius_meters}</p>}
+                                {errors.radius_meters && <p className="text-destructive text-xs">{errors.radius_meters}</p>}
                             </div>
 
                             <div className="grid gap-2">
                                 <Label htmlFor="color">Map color</Label>
-                                <Input id="color" type="color" value={data.color} onChange={(event) => setData('color', event.target.value)} className="h-10 p-1" />
-                                {errors.color && <p className="text-xs text-destructive">{errors.color}</p>}
+                                <Input
+                                    id="color"
+                                    type="color"
+                                    value={data.color}
+                                    onChange={(event) => setData('color', event.target.value)}
+                                    className="h-10 p-1"
+                                />
+                                {errors.color && <p className="text-destructive text-xs">{errors.color}</p>}
                             </div>
                         </div>
 
@@ -430,7 +443,7 @@ function PhilippinesOperationsMap({ incidents }: { incidents: MapIncident[] }) {
                                 onChange={(event) => setData('location_name', event.target.value)}
                                 placeholder="Barangay, city, or landmark"
                             />
-                            {errors.location_name && <p className="text-xs text-destructive">{errors.location_name}</p>}
+                            {errors.location_name && <p className="text-destructive text-xs">{errors.location_name}</p>}
                         </div>
 
                         <div className="grid gap-2">
@@ -439,13 +452,13 @@ function PhilippinesOperationsMap({ incidents }: { incidents: MapIncident[] }) {
                                 id="description"
                                 value={data.description}
                                 onChange={(event) => setData('description', event.target.value)}
-                                className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                                className="border-input bg-background focus:ring-ring min-h-24 rounded-md border px-3 py-2 text-sm outline-none focus:ring-2"
                                 placeholder="Current situation, affected families, access notes, or rescue needs"
                             />
-                            {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
+                            {errors.description && <p className="text-destructive text-xs">{errors.description}</p>}
                         </div>
 
-                        <div className="grid gap-2 rounded-md bg-muted p-3 text-xs text-muted-foreground sm:grid-cols-2">
+                        <div className="bg-muted text-muted-foreground grid gap-2 rounded-md p-3 text-xs sm:grid-cols-2">
                             <span>Latitude: {data.latitude}</span>
                             <span>Longitude: {data.longitude}</span>
                         </div>
@@ -455,7 +468,7 @@ function PhilippinesOperationsMap({ incidents }: { incidents: MapIncident[] }) {
                                 Cancel
                             </Button>
                             <Button type="submit" disabled={processing}>
-                                {editingIncident ? 'Save Changes' : 'Save Pin'}
+                                {editingIncident ? 'Save Changes' : 'Save Pin & Alert Citizens'}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -500,26 +513,10 @@ function StatusTile({ icon: Icon, label, value, tone }: { icon: React.ElementTyp
         <Card className="rounded-lg">
             <CardContent className="flex items-center justify-between p-4">
                 <div>
-                    <p className="text-sm text-muted-foreground">{label}</p>
+                    <p className="text-muted-foreground text-sm">{label}</p>
                     <p className="mt-1 text-2xl font-semibold">{value}</p>
                 </div>
                 <Icon className={`size-6 ${tone}`} />
-            </CardContent>
-        </Card>
-    );
-}
-
-function ActionCard({ icon: Icon, title, copy }: { icon: React.ElementType; title: string; copy: string }) {
-    return (
-        <Card className="rounded-lg">
-            <CardContent className="flex items-start gap-3 p-4">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
-                    <Icon className="size-5" />
-                </div>
-                <div>
-                    <div className="font-medium">{title}</div>
-                    <p className="mt-1 text-sm text-muted-foreground">{copy}</p>
-                </div>
             </CardContent>
         </Card>
     );

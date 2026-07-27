@@ -3,18 +3,18 @@ import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import type { MemberSafetyStatus, SafetyCircleMember } from '../types';
+import type { MemberCheckInStatus, SafetyCircleMember } from '../types';
 import { HelpAssistanceFlow, type AssistanceFlowMode, type AssistanceSubmission } from './help-assistance-flow';
 import { SafeStatusFlow } from './safe-status-flow';
 
 type MemberStatusDialogProps = {
     member: SafetyCircleMember | null;
     onClose: () => void;
-    onStatusChange: (memberId: number, status: MemberSafetyStatus, assistance?: AssistanceSubmission) => void;
+    onStatusChange: (memberId: number, status: MemberCheckInStatus, assistance?: AssistanceSubmission) => void;
 };
 
 type StatusChoice = {
-    value: MemberSafetyStatus;
+    value: MemberCheckInStatus;
     label: string;
     description: string;
 };
@@ -25,7 +25,7 @@ const statusChoices: StatusChoice[] = [
     { value: 'rescue', label: 'Kailangan Ko ng Agarang Saklolo', description: 'Nasa agarang panganib' },
 ];
 
-function getChoiceClass(status: MemberSafetyStatus, isSelected: boolean): string {
+function getChoiceClass(status: MemberCheckInStatus, isSelected: boolean): string {
     if (!isSelected) {
         return 'border-slate-200 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50';
     }
@@ -41,7 +41,7 @@ function getChoiceClass(status: MemberSafetyStatus, isSelected: boolean): string
     return 'border-red-300 bg-red-50 text-red-600 ring-2 ring-red-100';
 }
 
-function ChoiceIcon({ status }: { status: MemberSafetyStatus }): JSX.Element {
+function ChoiceIcon({ status }: { status: MemberCheckInStatus }): JSX.Element {
     if (status === 'safe') {
         return <CheckCircle2 className="size-5" aria-hidden="true" />;
     }
@@ -63,7 +63,7 @@ export function MemberStatusDialog({ member, onClose, onStatusChange }: MemberSt
         onClose();
     }
 
-    function selectStatus(status: MemberSafetyStatus): void {
+    function selectStatus(status: MemberCheckInStatus): void {
         if (member === null) {
             return;
         }

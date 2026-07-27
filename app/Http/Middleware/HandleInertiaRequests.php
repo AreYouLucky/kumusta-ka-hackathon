@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\DisasterCircleService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -45,6 +46,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'activeDisaster' => fn (): ?array => strtolower((string) $request->user()?->role) === 'citizen'
+                ? app(DisasterCircleService::class)->activeForUser($request->user())
+                : null,
         ]);
     }
 }

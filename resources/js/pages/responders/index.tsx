@@ -4,10 +4,12 @@ import { CheckCircle2, ClipboardCheck, Clock3, ListFilter, MapPin, Phone, Radio,
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 
-type AssistanceStatus = 'help' | 'rescue' | 'safe';
+import { ResponderRequestMap } from './components/responder-request-map';
+
+type AssistanceStatus = 'no_response' | 'help' | 'rescue' | 'safe';
 type ResponderStatus = 'pending' | 'accepted' | 'resolved' | null;
 
-type ResponderRequest = {
+export type ResponderRequest = {
     id: number;
     citizen_id: number | null;
     citizen_name: string;
@@ -147,6 +149,17 @@ export default function ResponderIndex({ initialRequests, view, currentResponder
                             My assignments
                         </Link>
                     </nav>
+
+                    <section className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                        <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p className="text-xs font-extrabold tracking-[0.14em] text-sky-700 uppercase">Live request map</p>
+                                <h2 className="mt-1 text-xl font-black">Where help is needed</h2>
+                            </div>
+                            <p className="text-xs font-semibold text-slate-500">{activeRequests.length} active locations</p>
+                        </div>
+                        <ResponderRequestMap requests={activeRequests} />
+                    </section>
 
                     <section className="mt-5 grid gap-3 sm:grid-cols-3">
                         <SummaryCard icon={<UsersRound className="size-5" />} label="Active requests" value={activeRequests.length} />
@@ -298,6 +311,18 @@ function RequestCard({ request, isProcessing, onAccept, onResolve }: RequestCard
                         Mark resolved
                     </button>
                 </div>
+
+                {request.latitude !== null && request.longitude !== null && (
+                    <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${request.latitude},${request.longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50"
+                    >
+                        <MapPin className="size-4 text-sky-600" aria-hidden="true" />
+                        Open directions
+                    </a>
+                )}
             </div>
         </article>
     );

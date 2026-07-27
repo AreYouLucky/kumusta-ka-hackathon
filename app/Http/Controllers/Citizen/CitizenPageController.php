@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\SafetyCircle;
 use App\Models\SafetyCircleMember;
 use App\Models\User;
+use App\Services\DisasterCircleService;
+use App\Support\SafetyCircleMemberData;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CitizenPageController extends Controller
 {
+    public function __construct(private DisasterCircleService $disasterCircleService) {}
+
     public function index(Request $request): Response
     {
         $userId = $request->user()->id;
@@ -69,12 +73,14 @@ class CitizenPageController extends Controller
             'memberCount' => $memberships->count(),
             'location' => $circle->location_name,
             'safeCount' => $memberships->where('safety_status', 'safe')->count(),
-            'notRespondingCount' => $memberships->where('safety_status', 'help')->count(),
+            'notRespondingCount' => $memberships->where('safety_status', 'no_response')->count(),
+            'helpCount' => $memberships->where('safety_status', 'help')->count(),
             'urgentAssistanceCount' => $memberships->where('safety_status', 'rescue')->count(),
             'avatarLabels' => $memberships
                 ->take(4)
                 ->map(fn (SafetyCircleMember $membership): string => $this->initials($membership->user))
                 ->values(),
+            'calamityStatus' => $this->calamityStatus($circle),
         ];
     }
 
@@ -86,25 +92,40 @@ class CitizenPageController extends Controller
             'description' => $circle->description ?? 'A private safety and emergency check-in circle.',
             'location' => $circle->location_name,
             'members' => $circle->memberships
-                ->map(fn (SafetyCircleMember $membership): array => [
-                    'id' => $membership->id,
-                    'name' => $this->fullName($membership->user),
-                    'initials' => $this->initials($membership->user),
-                    'relationship' => $membership->relationship,
-                    'status' => $membership->safety_status,
-                    'responseStatus' => $membership->response_status,
-                    'updatedAt' => ($membership->checked_in_at ?? $membership->updated_at)?->diffForHumans() ?? 'Not checked in',
-                    'isCurrentUser' => $membership->user_id === $currentUserId,
-                ])
+                ->map(fn (SafetyCircleMember $membership): array => SafetyCircleMemberData::fromMembership($membership, $currentUserId))
                 ->values(),
+            'calamityStatus' => $this->calamityStatus($circle),
         ];
     }
 
-    private function fullName(User $user): string
+    /**
+     * @return array<string, mixed>
+     */
+    private function calamityStatus(SafetyCircle $circle): array
     {
-        return collect([$user->fname, $user->mname, $user->lname, $user->suffix])
-            ->filter()
-            ->join(' ');
+        $disaster = $this->disasterCircleService->activeForCircle($circle);
+
+        if ($disaster === null) {
+            return [
+                'isAffected' => false,
+                'label' => 'NOT AFFECTED',
+                'title' => 'Outside active calamity areas',
+                'description' => 'No active calamity currently covers this circle location.',
+                'location' => $circle->location_name,
+                'reportedAt' => 'Monitoring active incidents',
+            ];
+        }
+
+        return [
+            'isAffected' => true,
+            'label' => 'AFFECTED BY CALAMITY',
+            'title' => $disaster['title'],
+            'description' => $disaster['description'] ?? 'This circle is inside the active calamity area. Check every member status now.',
+            'location' => $disaster['location'],
+            'reportedAt' => $disaster['reportedAt'],
+            'hazardType' => $disaster['hazardType'],
+            'severity' => $disaster['severity'],
+        ];
     }
 
     private function initials(User $user): string

@@ -1,8 +1,10 @@
 <?php
 
+use App\Events\SafetyCircleMemberAdded;
 use App\Models\SafetyCircle;
 use App\Models\SafetyCircleMember;
 use App\Models\User;
+use Illuminate\Support\Facades\Event;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('citizen pages require authentication', function () {
@@ -43,7 +45,8 @@ test('citizen home only shows circles visible to the authenticated user', functi
             ->has('circles', 1)
             ->where('circles.0.name', 'My Family')
             ->where('circles.0.memberCount', 1)
-            ->where('circles.0.safeCount', 1));
+            ->where('circles.0.safeCount', 1)
+            ->where('circles.0.calamityStatus.isAffected', false));
 });
 
 test('an authenticated user can create a safety circle', function () {
@@ -116,6 +119,38 @@ test('a visible circle member status can be updated', function () {
         ->checked_in_at->not->toBeNull();
 });
 
+test('any circle member can update another member status', function () {
+    $owner = User::factory()->create();
+    $updatingMember = User::factory()->create();
+    $circle = SafetyCircle::create([
+        'owner_id' => $owner->id,
+        'name' => 'My Family',
+        'location_name' => 'Taguig City',
+        'latitude' => 14.5176,
+        'longitude' => 121.0509,
+    ]);
+    $ownerMembership = $circle->memberships()->create([
+        'user_id' => $owner->id,
+        'relationship' => 'Parent',
+        'safety_status' => 'no_response',
+    ]);
+    $circle->memberships()->create([
+        'user_id' => $updatingMember->id,
+        'relationship' => 'Child',
+        'safety_status' => 'no_response',
+    ]);
+
+    $this->actingAs($updatingMember)
+        ->patch(route('citizen.circles.members.status', [$circle, $ownerMembership]), [
+            'status' => 'safe',
+        ])
+        ->assertRedirect();
+
+    expect($ownerMembership->refresh())
+        ->safety_status->toBe('safe')
+        ->checked_in_at->not->toBeNull();
+});
+
 test('global check in updates the current users circle memberships', function () {
     $user = User::factory()->create();
     $circle = SafetyCircle::create([
@@ -138,4 +173,68 @@ test('global check in updates the current users circle memberships', function ()
         ->safety_status->toBe('help')
         ->response_status->toBe('forwarded_to_lgu')
         ->checked_in_at->not->toBeNull();
+});
+
+test('a visible circle member can add a citizen by scanning their member code', function () {
+    Event::fake([SafetyCircleMemberAdded::class]);
+
+    $owner = User::factory()->create();
+    $newMember = User::factory()->create();
+    $circle = SafetyCircle::create([
+        'owner_id' => $owner->id,
+        'name' => 'My Family',
+        'location_name' => 'Taguig City',
+        'latitude' => 14.5176,
+        'longitude' => 121.0509,
+    ]);
+    $circle->memberships()->create([
+        'user_id' => $owner->id,
+        'relationship' => 'You',
+    ]);
+
+    $this->actingAs($owner)
+        ->post(route('citizen.circles.members.store', $circle), [
+            'member_code' => "KUMUSTAKA_MEMBER:{$newMember->id}",
+        ])
+        ->assertRedirect();
+
+    $membership = SafetyCircleMember::query()
+        ->where('safety_circle_id', $circle->id)
+        ->where('user_id', $newMember->id)
+        ->sole();
+
+    expect($membership)
+        ->relationship->toBe('Member')
+        ->safety_status->toBe('safe')
+        ->checked_in_at->not->toBeNull();
+
+    Event::assertDispatched(
+        SafetyCircleMemberAdded::class,
+        fn (SafetyCircleMemberAdded $event): bool => $event->circleId === $circle->id
+            && $event->member['id'] === $membership->id,
+    );
+});
+
+test('a citizen cannot add a member to a circle they cannot see', function () {
+    $owner = User::factory()->create();
+    $otherCitizen = User::factory()->create();
+    $newMember = User::factory()->create();
+    $circle = SafetyCircle::create([
+        'owner_id' => $owner->id,
+        'name' => 'Private Family',
+        'location_name' => 'Taguig City',
+        'latitude' => 14.5176,
+        'longitude' => 121.0509,
+    ]);
+
+    $this->actingAs($otherCitizen)
+        ->post(route('citizen.circles.members.store', $circle), [
+            'member_code' => "KUMUSTAKA_MEMBER:{$newMember->id}",
+        ])
+        ->assertNotFound();
+
+    $this->assertDatabaseMissing('safety_circle_members', [
+        'safety_circle_id' => $circle->id,
+        'user_id' => $newMember->id,
+    ]);
 });

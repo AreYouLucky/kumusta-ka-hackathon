@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Responder;
 use App\Events\CitizenAssistanceStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\SafetyCircleMember;
+use App\Services\DisasterCircleService;
 use App\Support\ResponderRequestData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,8 @@ use Inertia\Response;
 
 class ResponderRequestController extends Controller
 {
+    public function __construct(private DisasterCircleService $disasterCircleService) {}
+
     public function index(): Response
     {
         return $this->renderQueue();
@@ -59,6 +62,7 @@ class ResponderRequestController extends Controller
         ]);
 
         $member->refresh()->load(['user', 'circle', 'responder']);
+        $this->disasterCircleService->syncResponderTransaction($member);
         broadcast(new CitizenAssistanceStatusUpdated(ResponderRequestData::fromMember($member)));
 
         return back();

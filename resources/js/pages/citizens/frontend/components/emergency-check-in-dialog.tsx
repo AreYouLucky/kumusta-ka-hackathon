@@ -3,17 +3,18 @@ import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import type { MemberSafetyStatus } from '../types';
+import type { CitizenDisasterAlert, MemberCheckInStatus } from '../types';
 import { HelpAssistanceFlow, type AssistanceFlowMode, type AssistanceSubmission } from './help-assistance-flow';
 import { SafeStatusFlow } from './safe-status-flow';
 
 type EmergencyCheckInDialogProps = {
+    disaster: CitizenDisasterAlert;
     onClose: () => void;
-    onStatusComplete: (status: MemberSafetyStatus, assistance?: AssistanceSubmission) => void;
+    onStatusComplete: (status: MemberCheckInStatus, assistance?: AssistanceSubmission) => void;
 };
 
 type CheckInChoice = {
-    value: MemberSafetyStatus;
+    value: MemberCheckInStatus;
     label: string;
     description: string;
 };
@@ -24,7 +25,7 @@ const checkInChoices: CheckInChoice[] = [
     { value: 'rescue', label: 'Kailangan Ko ng Agarang Saklolo', description: 'Nasa panganib ako at kailangan ng rescue.' },
 ];
 
-function getChoiceClass(status: MemberSafetyStatus, isSelected: boolean): string {
+function getChoiceClass(status: MemberCheckInStatus, isSelected: boolean): string {
     const selectedRing = isSelected ? 'ring-2 ring-offset-2' : '';
 
     if (status === 'safe') {
@@ -38,7 +39,7 @@ function getChoiceClass(status: MemberSafetyStatus, isSelected: boolean): string
     return `border-red-200 bg-red-50 text-red-600 hover:border-red-300 ${selectedRing} ring-red-300`;
 }
 
-function ChoiceIcon({ status }: { status: MemberSafetyStatus }): JSX.Element {
+function ChoiceIcon({ status }: { status: MemberCheckInStatus }): JSX.Element {
     if (status === 'safe') {
         return <CheckCircle2 className="size-5" aria-hidden="true" />;
     }
@@ -50,8 +51,21 @@ function ChoiceIcon({ status }: { status: MemberSafetyStatus }): JSX.Element {
     return <Siren className="size-5" aria-hidden="true" />;
 }
 
-export function EmergencyCheckInDialog({ onClose, onStatusComplete }: EmergencyCheckInDialogProps): JSX.Element {
-    const [selectedStatus, setSelectedStatus] = useState<MemberSafetyStatus | null>(null);
+function hazardLabel(hazardType: string): string {
+    const labels: Record<string, string> = {
+        earthquake: 'lindol',
+        flood: 'baha',
+        fire: 'sunog',
+        landslide: 'pagguho ng lupa',
+        storm_surge: 'storm surge',
+        tsunami: 'tsunami',
+    };
+
+    return labels[hazardType] ?? 'sakuna';
+}
+
+export function EmergencyCheckInDialog({ disaster, onClose, onStatusComplete }: EmergencyCheckInDialogProps): JSX.Element {
+    const [selectedStatus, setSelectedStatus] = useState<MemberCheckInStatus | null>(null);
     const [assistanceMode, setAssistanceMode] = useState<AssistanceFlowMode | null>(null);
     const [isSafeFlowActive, setIsSafeFlowActive] = useState(false);
 
@@ -66,7 +80,7 @@ export function EmergencyCheckInDialog({ onClose, onStatusComplete }: EmergencyC
         }
     }
 
-    function completeStatus(status: MemberSafetyStatus, assistance?: AssistanceSubmission): void {
+    function completeStatus(status: MemberCheckInStatus, assistance?: AssistanceSubmission): void {
         onStatusComplete(status, assistance);
         onClose();
     }
@@ -129,18 +143,28 @@ export function EmergencyCheckInDialog({ onClose, onStatusComplete }: EmergencyC
 
                             <div className="text-center">
                                 <h2 id="emergency-check-in-title" className="text-xl font-black tracking-tight text-black sm:text-2xl">
-                                    May lindol na nangyari sa lugar mo.
+                                    May {hazardLabel(disaster.hazardType)} na nangyari sa lugar mo.
                                 </h2>
                                 <p className="mt-1 text-lg font-extrabold text-sky-600">Kumusta ka?</p>
+                                <p className="mt-2 text-xs font-semibold text-slate-500">{disaster.title}</p>
                             </div>
 
                             <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500">
                                 <span className="flex items-center gap-1">
                                     <MapPin className="size-3.5" aria-hidden="true" />
-                                    Iligan City
+                                    {disaster.location}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                    <Clock3 className="size-3.5" aria-hidden="true" />5 minutes ago
+                                    <Clock3 className="size-3.5" aria-hidden="true" />
+                                    {disaster.reportedAt}
+                                </span>
+                            </div>
+
+                            <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-3 text-left text-xs leading-5 font-semibold text-slate-700">
+                                <Clock3 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                <span>
+                                    Current status: <strong>No response yet.</strong> This remains until you or another circle member submits an
+                                    update.
                                 </span>
                             </div>
 

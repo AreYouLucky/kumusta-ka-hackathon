@@ -93,6 +93,6 @@ export const sampleTyphoonAdvisory: WeatherAdvisory = {
     description: 'A typhoon track shows possible effects across southern Luzon and Metro Manila. Prepare for strong winds and heavy rainfall.',
     updatedAt: 'Updated 10 minutes ago',
     impactAreas: ['Taguig City', 'Metro Manila', 'Southern Luzon'],
-    mapImage: '/assets/images/typhoon-taguig-sample-map.png',
+    mapImage: '/storage/images/typhoon-taguig-sample-map.png',
     mapAlt: 'Philippines map showing a typhoon path approaching Luzon and Metro Manila',
 };

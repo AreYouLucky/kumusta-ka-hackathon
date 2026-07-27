@@ -26,7 +26,7 @@ import {
     Smartphone,
     Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Affected Residents', href: '/gcc/affected-residents' }];
 const residentsPerPage = 10;
@@ -42,6 +42,8 @@ type Resident = {
     status: string;
     resident_status: number;
     circle_safety_status: 'no_response' | 'safe' | 'help' | 'rescue' | null;
+    is_no_response: boolean;
+    is_marked_safe: boolean;
     assistance_type: string | null;
     situation: string | null;
     priority: string | null;
@@ -68,6 +70,8 @@ type IncidentGroup = {
     pregnant_count: number;
     health_problem_count: number;
     evacuated_count: number;
+    rescued_count: number;
+    marked_safe_count: number;
     no_response_count: number;
     needs_help_count: number;
     urgent_rescue_count: number;
@@ -82,6 +86,8 @@ type Summary = {
     pregnant: number;
     health_problem: number;
     evacuated: number;
+    rescued: number;
+    marked_safe: number;
     no_response: number;
     needs_help: number;
     urgent_rescue: number;
@@ -92,9 +98,100 @@ type AffectedResidentsChangedPayload = {
     action: string;
     affectedResidentId: number | null;
     memberId: number | null;
+    resident: Pick<
+        Resident,
+        | 'id'
+        | 'status'
+        | 'resident_status'
+        | 'circle_safety_status'
+        | 'assistance_type'
+        | 'situation'
+        | 'priority'
+        | 'is_no_response'
+        | 'is_marked_safe'
+    > | null;
 };
 
+type LiveAffectedResidents = {
+    incidentGroups: IncidentGroup[];
+    summary: Summary;
+};
+
+type ResidentRealtimeUpdate = NonNullable<AffectedResidentsChangedPayload['resident']>;
+
+function residentResponsePriority(resident: Resident): number {
+    if (
+        resident.status !== 'rescued' &&
+        (resident.circle_safety_status === 'rescue' || (resident.circle_safety_status === null && resident.resident_status === 3))
+    ) {
+        return 0;
+    }
+
+    if (
+        resident.status !== 'rescued' &&
+        (resident.circle_safety_status === 'help' || (resident.circle_safety_status === null && resident.resident_status === 2))
+    ) {
+        return 1;
+    }
+
+    if (
+        resident.status === 'rescued' ||
+        resident.circle_safety_status === 'safe' ||
+        (resident.circle_safety_status === null && resident.resident_status === 1)
+    ) {
+        return 2;
+    }
+
+    return 3;
+}
+
+function responseCounts(
+    residents: Resident[],
+): Pick<IncidentGroup, 'evacuated_count' | 'rescued_count' | 'marked_safe_count' | 'no_response_count' | 'needs_help_count' | 'urgent_rescue_count'> {
+    return {
+        evacuated_count: residents.filter((resident) => resident.status === 'evacuated').length,
+        rescued_count: residents.filter((resident) => resident.status === 'rescued').length,
+        marked_safe_count: residents.filter((resident) => resident.is_marked_safe).length,
+        no_response_count: residents.filter((resident) => resident.is_no_response).length,
+        needs_help_count: residents.filter((resident) => resident.circle_safety_status === 'help').length,
+        urgent_rescue_count: residents.filter((resident) => resident.circle_safety_status === 'rescue' && resident.status !== 'rescued').length,
+    };
+}
+
+function applyResidentUpdate(current: LiveAffectedResidents, incidentId: number, update: ResidentRealtimeUpdate): LiveAffectedResidents {
+    const incidentGroups = current.incidentGroups.map((incident) => {
+        if (incident.id !== incidentId) {
+            return incident;
+        }
+
+        const residents = incident.residents
+            .map((resident) => (resident.id === update.id ? { ...resident, ...update } : resident))
+            .sort((first, second) => residentResponsePriority(first) - residentResponsePriority(second));
+
+        return {
+            ...incident,
+            ...responseCounts(residents),
+            residents,
+        };
+    });
+    const residents = incidentGroups.flatMap((incident) => incident.residents);
+
+    return {
+        incidentGroups,
+        summary: {
+            ...current.summary,
+            evacuated: residents.filter((resident) => resident.status === 'evacuated').length,
+            rescued: residents.filter((resident) => resident.status === 'rescued').length,
+            marked_safe: residents.filter((resident) => resident.is_marked_safe).length,
+            no_response: residents.filter((resident) => resident.is_no_response).length,
+            needs_help: residents.filter((resident) => resident.circle_safety_status === 'help').length,
+            urgent_rescue: residents.filter((resident) => resident.circle_safety_status === 'rescue' && resident.status !== 'rescued').length,
+        },
+    };
+}
+
 export default function AffectedResidents({ incidentGroups = [], summary }: { incidentGroups?: IncidentGroup[]; summary: Summary }) {
+    const [liveData, setLiveData] = useState<LiveAffectedResidents>({ incidentGroups, summary });
     const [openIncidentId, setOpenIncidentId] = useState<number | null>(incidentGroups[0]?.id ?? null);
     const [notifiedResident, setNotifiedResident] = useState<Resident | null>(null);
     const [smsNotifiedResident, setSmsNotifiedResident] = useState<Resident | null>(null);
@@ -102,10 +199,27 @@ export default function AffectedResidents({ incidentGroups = [], summary }: { in
     const [dispatchedResident, setDispatchedResident] = useState<Resident | null>(null);
     const connectionStatus = useConnectionStatus();
 
-    useEcho<AffectedResidentsChangedPayload>('gcc.affected-residents', 'AffectedResidentsChanged', () => {
-        router.reload({
-            only: ['incidentGroups', 'summary'],
-        });
+    useEffect(() => {
+        setLiveData({ incidentGroups, summary });
+    }, [incidentGroups, summary]);
+
+    useEcho<AffectedResidentsChangedPayload>('gcc.affected-residents', 'AffectedResidentsChanged', (payload) => {
+        const updatedResident = payload.resident;
+        const canUpdateLocally =
+            updatedResident !== null &&
+            liveData.incidentGroups.some(
+                (incident) => incident.id === payload.incidentId && incident.residents.some((resident) => resident.id === updatedResident.id),
+            );
+
+        if (!canUpdateLocally || updatedResident === null) {
+            router.reload({
+                only: ['incidentGroups', 'summary'],
+            });
+
+            return;
+        }
+
+        setLiveData((current) => applyResidentUpdate(current, payload.incidentId, updatedResident));
     });
 
     return (
@@ -126,17 +240,19 @@ export default function AffectedResidents({ incidentGroups = [], summary }: { in
                     </Badge>
                 </section>
 
-                <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                    <SummaryTile icon={Users} label="Total Records" value={summary.total} />
-                    <SummaryTile icon={Clock3} label="No Response" value={summary.no_response} />
-                    <SummaryTile icon={HandHeart} label="Needs Help" value={summary.needs_help} />
-                    <SummaryTile icon={Siren} label="Urgent Rescue" value={summary.urgent_rescue} />
-                    <SummaryTile icon={Baby} label="Children" value={summary.children} />
-                    <SummaryTile icon={PersonStanding} label="Senior" value={summary.senior} />
-                    <SummaryTile icon={PersonStanding} label="PWD" value={summary.pwd} />
-                    <SummaryTile icon={HeartPulse} label="Pregnant" value={summary.pregnant} />
-                    <SummaryTile icon={HeartPulse} label="Health Risk" value={summary.health_problem} />
-                    <SummaryTile icon={Home} label="Evacuated" value={summary.evacuated} />
+                <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+                    <SummaryTile icon={Users} label="Total Records" value={liveData.summary.total} />
+                    <SummaryTile icon={Clock3} label="No Response" value={liveData.summary.no_response} />
+                    <SummaryTile icon={HandHeart} label="Needs Help" value={liveData.summary.needs_help} />
+                    <SummaryTile icon={Siren} label="Urgent Rescue" value={liveData.summary.urgent_rescue} />
+                    <SummaryTile icon={CheckCircle2} label="Marked Safe" value={liveData.summary.marked_safe} />
+                    <SummaryTile icon={Ambulance} label="Rescued" value={liveData.summary.rescued} />
+                    <SummaryTile icon={Baby} label="Children" value={liveData.summary.children} />
+                    <SummaryTile icon={PersonStanding} label="Senior" value={liveData.summary.senior} />
+                    <SummaryTile icon={PersonStanding} label="PWD" value={liveData.summary.pwd} />
+                    <SummaryTile icon={HeartPulse} label="Pregnant" value={liveData.summary.pregnant} />
+                    <SummaryTile icon={HeartPulse} label="Health Risk" value={liveData.summary.health_problem} />
+                    <SummaryTile icon={Home} label="Evacuated" value={liveData.summary.evacuated} />
                 </section>
 
                 <Card className="min-w-0 rounded-lg">
@@ -144,8 +260,8 @@ export default function AffectedResidents({ incidentGroups = [], summary }: { in
                         <CardTitle className="text-base">Affected Lists By Disaster</CardTitle>
                     </CardHeader>
                     <CardContent className="grid min-w-0 gap-3">
-                        {incidentGroups.length ? (
-                            incidentGroups.map((incident) => {
+                        {liveData.incidentGroups.length ? (
+                            liveData.incidentGroups.map((incident) => {
                                 const isOpen = openIncidentId === incident.id;
 
                                 return (
@@ -176,6 +292,8 @@ export default function AffectedResidents({ incidentGroups = [], summary }: { in
                                                     <Metric label="No response" value={incident.no_response_count} />
                                                     <Metric label="Needs help" value={incident.needs_help_count} />
                                                     <Metric label="Urgent rescue" value={incident.urgent_rescue_count} />
+                                                    <Metric label="Marked safe" value={incident.marked_safe_count} />
+                                                    <Metric label="Rescued" value={incident.rescued_count} />
                                                 </div>
                                             </div>
 
@@ -418,7 +536,15 @@ function ResidentList({
                                 <p className="text-muted-foreground text-xs leading-5 break-words">{resident.situation}</p>
                             )}
                             {resident.priority !== null && (
-                                <Badge variant={resident.circle_safety_status === 'rescue' ? 'destructive' : 'secondary'}>{resident.priority}</Badge>
+                                <span
+                                    className={`inline-block border px-2 py-1 text-xs font-semibold ${
+                                        resident.circle_safety_status === 'rescue'
+                                            ? 'border-red-300 bg-red-50 text-red-700'
+                                            : 'border-border bg-muted text-foreground'
+                                    }`}
+                                >
+                                    {resident.priority}
+                                </span>
                             )}
                             {resident.assistance_type === null && resident.situation === null && resident.priority === null && (
                                 <span className="text-muted-foreground">No reported need</span>

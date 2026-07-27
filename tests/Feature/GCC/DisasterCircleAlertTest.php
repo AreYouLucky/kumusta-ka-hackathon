@@ -398,6 +398,42 @@ test('gcc affected resident actions synchronize citizen and responder websocket 
         ->resident_status->toBe(1)
         ->circle_safety_status->toBe('safe');
 
+    $realtimePayload = (new AffectedResidentsChanged(
+        $incident->id,
+        'marked_safe',
+        $affectedResident->id,
+        $member->id,
+    ))->broadcastWith();
+
+    expect($realtimePayload['resident'])
+        ->toMatchArray([
+            'id' => $affectedResident->id,
+            'resident_status' => 1,
+            'circle_safety_status' => 'safe',
+            'is_no_response' => false,
+            'is_marked_safe' => true,
+        ]);
+
+    $this->actingAs($gcc)
+        ->get(route('gcc.affected-residents.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('incidentGroups.0.marked_safe_count', 1)
+            ->where('incidentGroups.0.rescued_count', 0)
+            ->where('summary.marked_safe', 1)
+            ->where('summary.rescued', 0));
+
+    $affectedResident->update(['status' => 'rescued']);
+
+    $this->actingAs($gcc)
+        ->get(route('gcc.affected-residents.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('incidentGroups.0.marked_safe_count', 0)
+            ->where('incidentGroups.0.rescued_count', 1)
+            ->where('summary.marked_safe', 0)
+            ->where('summary.rescued', 1));
+
     Event::assertDispatchedTimes(AffectedResidentsChanged::class, 2);
     Event::assertDispatchedTimes(CitizenAssistanceStatusUpdated::class, 2);
     Event::assertDispatchedTimes(SafetyCircleMemberStatusUpdated::class, 2);

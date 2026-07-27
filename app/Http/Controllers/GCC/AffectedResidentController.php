@@ -23,9 +23,20 @@ class AffectedResidentController extends Controller
                 ->with('residence')
                 ->orderByRaw("
                     CASE
-                        WHEN circle_safety_status = 'rescue' AND status <> 'rescued' THEN 0
-                        WHEN circle_safety_status = 'help' AND status <> 'rescued' THEN 1
-                        ELSE 2
+                        WHEN status <> 'rescued'
+                            AND (
+                                circle_safety_status = 'rescue'
+                                OR (circle_safety_status IS NULL AND resident_status = 3)
+                            ) THEN 0
+                        WHEN status <> 'rescued'
+                            AND (
+                                circle_safety_status = 'help'
+                                OR (circle_safety_status IS NULL AND resident_status = 2)
+                            ) THEN 1
+                        WHEN status = 'rescued'
+                            OR circle_safety_status = 'safe'
+                            OR (circle_safety_status IS NULL AND resident_status = 1) THEN 2
+                        ELSE 3
                     END
                 ")
                 ->latest()])
@@ -50,6 +61,10 @@ class AffectedResidentController extends Controller
                 'pregnant_count' => $incident->affectedResidents->filter(fn (AffectedResident $resident) => $resident->residence?->is_pregnant)->count(),
                 'health_problem_count' => $incident->affectedResidents->filter(fn (AffectedResident $resident) => $resident->residence?->has_health_problem)->count(),
                 'evacuated_count' => $incident->affectedResidents->where('status', 'evacuated')->count(),
+                'rescued_count' => $incident->affectedResidents->where('status', 'rescued')->count(),
+                'marked_safe_count' => $incident->affectedResidents
+                    ->filter(fn (AffectedResident $resident) => $resident->isMarkedSafe())
+                    ->count(),
                 'no_response_count' => $incident->affectedResidents
                     ->filter(fn (AffectedResident $resident) => $resident->hasNoResponse())
                     ->count(),
@@ -75,6 +90,7 @@ class AffectedResidentController extends Controller
                     'resident_status' => $resident->resident_status,
                     'circle_safety_status' => $resident->circle_safety_status,
                     'is_no_response' => $resident->hasNoResponse(),
+                    'is_marked_safe' => $resident->isMarkedSafe(),
                     'assistance_type' => $resident->assistance_type,
                     'situation' => $resident->situation,
                     'priority' => $resident->priority,
@@ -98,6 +114,8 @@ class AffectedResidentController extends Controller
                 'pregnant' => $residents->where('is_pregnant', true)->count(),
                 'health_problem' => $residents->where('has_health_problem', true)->count(),
                 'evacuated' => $residents->where('status', 'evacuated')->count(),
+                'rescued' => $residents->where('status', 'rescued')->count(),
+                'marked_safe' => $residents->where('is_marked_safe', true)->count(),
                 'no_response' => $residents->where('is_no_response', true)->count(),
                 'needs_help' => $residents->where('circle_safety_status', 'help')->count(),
                 'urgent_rescue' => $residents

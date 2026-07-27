@@ -67,4 +67,11 @@ class AffectedResident extends Model
         return $this->circle_safety_status === 'no_response'
             || ($this->circle_safety_status === null && $this->resident_status === 0);
     }
+
+    public function isMarkedSafe(): bool
+    {
+        return $this->status !== 'rescued'
+            && ($this->circle_safety_status === 'safe'
+                || ($this->circle_safety_status === null && $this->resident_status === 1));
+    }
 }

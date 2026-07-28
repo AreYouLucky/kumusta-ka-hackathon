@@ -7,7 +7,10 @@ import { createRoot } from 'react-dom/client';
 import { route as routeFn } from 'ziggy-js';
 
 configureEcho({
-    broadcaster: 'reverb',
+    broadcaster: 'pusher',
+    key: import.meta.env.VITE_PUSHER_APP_KEY,
+    cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
+    forceTLS: true,
 });
 //import { initializeTheme } from './hooks/use-appearance';
 

@@ -301,9 +301,7 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                 const response = findAssistanceResponseSeed(message);
 
                 setMatchedResponse(response ?? null);
-                setParsedData(
-                    response === undefined ? { ...defaultContent.initialData, situation: message } : createParsedAssistanceData(response),
-                );
+                setParsedData(response === undefined ? { ...defaultContent.initialData, situation: message } : createParsedAssistanceData(response));
                 setAnalysisError(error instanceof Error ? error.message : 'eGovAI could not process the report.');
             } finally {
                 setVisibleVoiceLineCount(2);

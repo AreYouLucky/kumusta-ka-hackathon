@@ -13,10 +13,18 @@ class EnsureUserIsCitizen
         $user = $request->user();
 
         if ($user === null) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+
             return to_route('citizen.login');
         }
 
         if (strtolower((string) $user->role) !== 'citizen') {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'This action is only available to citizen accounts.'], 403);
+            }
+
             return to_route($user->dashboardRoute());
         }
 

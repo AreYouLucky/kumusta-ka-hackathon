@@ -1,7 +1,7 @@
 import type { SharedData } from '@/types';
-import { router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useEcho } from '@laravel/echo-react';
-import { Bell } from 'lucide-react';
+import { Bell, LogOut } from 'lucide-react';
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 
@@ -73,22 +73,35 @@ export function AppHeader(): JSX.Element {
                     <p className="text-xs font-semibold text-sky-50 sm:text-sm">Dahil ikaw ay mahalaga</p>
                 </div>
 
-                <div className="relative shrink-0">
-                    <button
-                        type="button"
-                        onClick={() => disaster && setIsNotificationOpen(true)}
-                        disabled={!disaster}
-                        aria-label={disaster ? 'View emergency notification' : 'No emergency notifications'}
-                        aria-haspopup="dialog"
-                        className="grid size-11 place-items-center rounded-xl border border-white/25 bg-white/15 text-white shadow-[0_7px_18px_rgba(15,23,42,0.14)] backdrop-blur transition-colors hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-default disabled:opacity-60 sm:size-12"
+                <div className="flex shrink-0 items-center gap-2">
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => disaster && setIsNotificationOpen(true)}
+                            disabled={!disaster}
+                            aria-label={disaster ? 'View emergency notification' : 'No emergency notifications'}
+                            aria-haspopup="dialog"
+                            className="grid size-11 place-items-center rounded-xl border border-white/25 bg-white/15 text-white shadow-[0_7px_18px_rgba(15,23,42,0.14)] backdrop-blur transition-colors hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-default disabled:opacity-60 sm:size-12"
+                        >
+                            <Bell className="size-5" aria-hidden="true" />
+                        </button>
+                        {disaster && (
+                            <span className="absolute -top-1 -right-1 grid size-5 place-items-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-blue-600">
+                                1
+                            </span>
+                        )}
+                    </div>
+
+                    <Link
+                        href={route('logout')}
+                        method="post"
+                        as="button"
+                        aria-label="Log out"
+                        title="Log out"
+                        className="grid size-11 place-items-center rounded-xl border border-white/25 bg-white/15 text-white shadow-[0_7px_18px_rgba(15,23,42,0.14)] backdrop-blur transition-colors hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:size-12"
                     >
-                        <Bell className="size-5" aria-hidden="true" />
-                    </button>
-                    {disaster && (
-                        <span className="absolute -top-1 -right-1 grid size-5 place-items-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-blue-600">
-                            1
-                        </span>
-                    )}
+                        <LogOut className="size-5" aria-hidden="true" />
+                    </Link>
                 </div>
             </header>
 

@@ -1,6 +1,19 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useConnectionStatus, useEcho } from '@laravel/echo-react';
-import { CheckCircle2, ClipboardCheck, Clock3, ListFilter, MapPin, Phone, Radio, ShieldAlert, Siren, UserRoundCheck, UsersRound } from 'lucide-react';
+import {
+    CheckCircle2,
+    ClipboardCheck,
+    Clock3,
+    ListFilter,
+    LogOut,
+    MapPin,
+    Phone,
+    Radio,
+    ShieldAlert,
+    Siren,
+    UserRoundCheck,
+    UsersRound,
+} from 'lucide-react';
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 
@@ -116,16 +129,27 @@ export default function ResponderIndex({ initialRequests, view, currentResponder
                                         : 'New citizen check-ins and status changes are delivered from Laravel in real time.'}
                                 </p>
                             </div>
-                            <span
-                                className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold ${
-                                    connectionStatus === 'connected' ? 'bg-green-400/20 text-green-50' : 'bg-amber-300/20 text-amber-50'
-                                }`}
-                            >
+                            <div className="flex flex-wrap items-center gap-2">
                                 <span
-                                    className={`size-2 rounded-full ${connectionStatus === 'connected' ? 'animate-pulse bg-green-300' : 'bg-amber-300'}`}
-                                />
-                                WebSocket {connectionStatus === 'connected' ? 'connected' : connectionStatus}
-                            </span>
+                                    className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold ${
+                                        connectionStatus === 'connected' ? 'bg-green-400/20 text-green-50' : 'bg-amber-300/20 text-amber-50'
+                                    }`}
+                                >
+                                    <span
+                                        className={`size-2 rounded-full ${connectionStatus === 'connected' ? 'animate-pulse bg-green-300' : 'bg-amber-300'}`}
+                                    />
+                                    WebSocket {connectionStatus === 'connected' ? 'connected' : connectionStatus}
+                                </span>
+                                <Link
+                                    href={route('logout')}
+                                    method="post"
+                                    as="button"
+                                    className="inline-flex h-9 items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 text-xs font-extrabold text-white transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                                >
+                                    <LogOut className="size-4" aria-hidden="true" />
+                                    Log out
+                                </Link>
+                            </div>
                         </div>
                     </header>
 

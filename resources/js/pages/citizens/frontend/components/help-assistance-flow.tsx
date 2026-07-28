@@ -614,6 +614,40 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                     Maaari mong i-edit ang bawat na-parse na detalye bago ipadala.
                 </div>
 
+                <div className="mt-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+                    <div className="flex items-center gap-2 text-xs font-extrabold text-indigo-700">
+                        <Sparkles className="size-4" aria-hidden="true" />
+                        EGOVAI ENGLISH TRANSLATION
+                    </div>
+                    <p className="mt-2 text-sm leading-6 font-semibold text-indigo-950">{capturedTranscript}</p>
+                </div>
+
+                {aiGuidance.length > 0 && (
+                    <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                        <p className="text-xs font-extrabold text-emerald-800">Suggested immediate actions</p>
+                        <ul className="mt-2 grid gap-1.5 text-xs leading-5 font-semibold text-emerald-900">
+                            {aiGuidance.slice(0, 3).map((item) => (
+                                <li key={item} className="flex gap-2">
+                                    <span aria-hidden="true">•</span>
+                                    <span>{item}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {assistantResponse !== null && aiGuidance.length === 0 && (
+                    <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs leading-5 font-semibold text-emerald-900">
+                        eGovAI suggestion: {assistantResponse}
+                    </div>
+                )}
+
+                {analysisError !== null && (
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 font-semibold text-amber-800">
+                        {analysisError} The report remains editable and can still be submitted using the captured text.
+                    </div>
+                )}
+
                 <div className="mt-3 grid gap-3">
                     <EditableReviewField
                         icon={<HeartHandshake className="size-4" />}

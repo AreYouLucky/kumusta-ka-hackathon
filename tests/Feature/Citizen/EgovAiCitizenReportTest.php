@@ -51,7 +51,8 @@ test('citizen report is translated and structured through eGovAI', function () {
 
     Http::assertSent(fn (Request $request): bool => $request->url() === 'https://egov-ai.test/api/v1/egov/integration/speech_maker/generate'
         && $request->hasHeader('Authorization', 'Bearer test-hackathon-token')
-        && $request['prompt'] === 'Tulong, nasugatan ako.'
+        && str_contains($request['prompt'], 'Translate this Filipino emergency report into English')
+        && str_contains($request['prompt'], 'Tulong, nasugatan ako.')
         && $request['source_lang'] === 'fi'
         && $request['target_lang'] === 'en');
 

@@ -26,14 +26,19 @@ class EgovAiClient
         return [
             'translated_text' => $translatedText,
             'assistant_response' => $assistantResponse,
-            'structured' => $this->structuredResponse($assistantResponse),
+            'structured' => $this->structuredResponse($assistantResponse, $mode),
         ];
     }
 
     private function translate(string $prompt): string
     {
+        $translationPrompt = <<<PROMPT
+Translate this Filipino emergency report into English. Return only the English translation without advice or explanation:
+"{$prompt}"
+PROMPT;
+
         $response = $this->post('/api/v1/egov/integration/speech_maker/generate', [
-            'prompt' => $prompt,
+            'prompt' => $translationPrompt,
             'source_lang' => $this->requiredConfig('services.egov_ai.source_lang'),
             'target_lang' => $this->requiredConfig('services.egov_ai.target_lang'),
         ]);
@@ -102,42 +107,86 @@ PROMPT;
             throw new EgovAiException("The eGovAI {$label} was invalid.");
         }
 
-        foreach ([
-            'data.translated_text',
-            'data.translation',
+        $generatedText = $this->findGeneratedText($payload);
+
+        if ($generatedText !== null) {
+            return $generatedText;
+        }
+
+        throw new EgovAiException(
+            "The eGovAI {$label} was missing. Response fields: ".implode(', ', $this->payloadKeys($payload)),
+        );
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $payload
+     */
+    private function findGeneratedText(array $payload): ?string
+    {
+        $textKeys = [
             'translated_text',
+            'translatedtext',
             'translation',
-            'data.generated_text',
+            'translation_result',
             'generated_text',
-            'data.response',
             'response',
-            'data.answer',
+            'response_text',
             'answer',
-            'data.result',
             'result',
-            'data.content',
             'content',
-            'data.message',
-            'message',
-            'data.output',
             'output',
             'text',
-            'data.text',
-        ] as $key) {
-            $value = data_get($payload, $key);
+            'completion',
+            'data',
+        ];
 
-            if (is_string($value) && trim($value) !== '') {
+        foreach ($payload as $key => $value) {
+            $normalizedKey = strtolower(str_replace(['-', ' '], '_', (string) $key));
+
+            if (in_array($normalizedKey, $textKeys, true) && is_string($value) && trim($value) !== '') {
                 return trim($value);
             }
         }
 
-        throw new EgovAiException("The eGovAI {$label} was missing.");
+        foreach ($payload as $value) {
+            if (! is_array($value)) {
+                continue;
+            }
+
+            $nestedText = $this->findGeneratedText($value);
+
+            if ($nestedText !== null) {
+                return $nestedText;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $payload
+     * @return list<string>
+     */
+    private function payloadKeys(array $payload, string $prefix = ''): array
+    {
+        $keys = [];
+
+        foreach ($payload as $key => $value) {
+            $path = $prefix === '' ? (string) $key : "{$prefix}.{$key}";
+            $keys[] = $path;
+
+            if (is_array($value)) {
+                $keys = [...$keys, ...$this->payloadKeys($value, $path)];
+            }
+        }
+
+        return array_slice($keys, 0, 30);
     }
 
     /**
      * @return array<string, mixed>|null
      */
-    private function structuredResponse(string $response): ?array
+    private function structuredResponse(string $response, string $fallbackMode): ?array
     {
         $withoutFences = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($response));
 
@@ -154,7 +203,16 @@ PROMPT;
 
         $decoded = json_decode(substr($withoutFences, $start, $end - $start + 1), true);
 
-        return is_array($decoded) ? $decoded : null;
+        if (! is_array($decoded)) {
+            return null;
+        }
+
+        $decodedMode = $decoded['mode'] ?? null;
+        $decoded['mode'] = is_string($decodedMode) && in_array(strtolower($decodedMode), ['help', 'rescue'], true)
+            ? strtolower($decodedMode)
+            : $fallbackMode;
+
+        return $decoded;
     }
 
     private function requiredConfig(string $key): string

@@ -34,7 +34,7 @@ import {
 
 type HelpFlowStep = 'listening' | 'review' | 'sending' | 'guidance';
 
-const silenceTimeoutMs = 5000;
+const silenceTimeoutMs = 3000;
 
 export type { AssistanceFlowMode } from '../assistance-response-seeder';
 
@@ -446,7 +446,7 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                         : 'Handang makinig sa iyong sitwasyon'}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                    Awtomatikong nakikinig. Pag tumigil kang magsalita nang 5 segundo, ipapakita ang mungkahing response.
+                    Awtomatikong nakikinig. Pag tumigil kang magsalita nang 3 segundo, ipapakita ang mungkahing response.
                 </p>
                 <button
                     type="button"
@@ -542,7 +542,7 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                     {isListening
                         ? capturedTranscript === ''
                             ? 'Listening for your response...'
-                            : 'Waiting for 5 seconds of silence...'
+                            : 'Waiting for 3 seconds of silence...'
                         : 'Magsalita muli o gamitin ang manual input sa ibaba.'}
                 </div>
 

@@ -50,6 +50,13 @@ return [
         'category' => env('EGOV_AI_CATEGORY', 'PH'),
     ],
 
+    'egov_message' => [
+        'enabled' => env('EGOV_MESSAGE_ENABLED', false),
+        'endpoint' => env('EGOV_MESSAGE_ENDPOINT', 'https://ws-message.e.gov.ph/messaging/v1/sms/push'),
+        'auth_token' => env('EGOV_MESSAGE_AUTH_TOKEN'),
+        'recipient' => env('EGOV_MESSAGE_RECIPIENT', '+639683013603'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

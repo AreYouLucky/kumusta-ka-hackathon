@@ -13,6 +13,7 @@ use App\Models\SafetyCircle;
 use App\Models\SafetyCircleMember;
 use App\Models\User;
 use App\Services\DisasterCircleService;
+use App\Services\EmergencyReportNotificationService;
 use App\Support\ResponderRequestData;
 use App\Support\SafetyCircleMemberData;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +23,10 @@ use Illuminate\Validation\ValidationException;
 
 class SafetyCircleController extends Controller
 {
-    public function __construct(private DisasterCircleService $disasterCircleService) {}
+    public function __construct(
+        private DisasterCircleService $disasterCircleService,
+        private EmergencyReportNotificationService $notificationService,
+    ) {}
 
     public function store(StoreSafetyCircleRequest $request): RedirectResponse
     {
@@ -116,6 +120,7 @@ class SafetyCircleController extends Controller
         $member->update($this->statusAttributes($status, $validated));
         $this->disasterCircleService->syncAffectedResidentStatus($member);
         $this->broadcastMemberStatus($member);
+        $this->sendEmergencyNotification($member, $status);
 
         return back();
     }
@@ -134,6 +139,11 @@ class SafetyCircleController extends Controller
             $this->disasterCircleService->syncAffectedResidentStatus($member);
             $this->broadcastMemberStatus($member);
         });
+        $firstMembership = $members->first();
+
+        if ($firstMembership instanceof SafetyCircleMember) {
+            $this->sendEmergencyNotification($firstMembership, $status);
+        }
 
         return back();
     }
@@ -177,6 +187,15 @@ class SafetyCircleController extends Controller
             $member->safety_circle_id,
             SafetyCircleMemberData::fromMembership($member),
         ));
+    }
+
+    private function sendEmergencyNotification(SafetyCircleMember $member, string $status): void
+    {
+        if (! in_array($status, ['help', 'rescue'], true)) {
+            return;
+        }
+
+        $this->notificationService->send($member->refresh());
     }
 
     private function fullName(User $user): string

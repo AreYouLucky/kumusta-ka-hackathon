@@ -30,6 +30,35 @@ class EgovAiClient
         ];
     }
 
+    public function structureEmergencySms(
+        string $name,
+        string $assistanceType,
+        string $situation,
+        string $priority,
+        float $latitude,
+        float $longitude,
+    ): string {
+        $prompt = <<<PROMPT
+Create a concise plain-text Philippine emergency SMS report.
+Include every field exactly once: citizen name, assistance type, situation, priority, latitude, and longitude.
+Do not use Markdown or JSON. End with a short recommended immediate action.
+
+Citizen name: {$name}
+Assistance type: {$assistanceType}
+Situation: {$situation}
+Priority: {$priority}
+Latitude: {$latitude}
+Longitude: {$longitude}
+PROMPT;
+
+        $response = $this->post('/api/v1/egov/integration/ai_assistant/generate', [
+            'prompt' => $prompt,
+            'category' => $this->requiredConfig('services.egov_ai.category'),
+        ]);
+
+        return $this->generatedText($response, 'structured SMS report');
+    }
+
     private function translate(string $prompt): string
     {
         $translationPrompt = <<<PROMPT

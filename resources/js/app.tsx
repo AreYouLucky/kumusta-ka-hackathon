@@ -6,12 +6,21 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { route as routeFn } from 'ziggy-js';
 
-configureEcho({
-    broadcaster: 'pusher',
-    key: import.meta.env.VITE_PUSHER_APP_KEY,
-    cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
-    forceTLS: true,
-});
+const pusherAppKey = import.meta.env.VITE_PUSHER_APP_KEY?.trim();
+const pusherAppCluster = import.meta.env.VITE_PUSHER_APP_CLUSTER?.trim();
+
+if (pusherAppKey && pusherAppCluster) {
+    configureEcho({
+        broadcaster: 'pusher',
+        key: pusherAppKey,
+        cluster: pusherAppCluster,
+        forceTLS: true,
+    });
+} else {
+    configureEcho({
+        broadcaster: 'null',
+    });
+}
 //import { initializeTheme } from './hooks/use-appearance';
 
 declare global {

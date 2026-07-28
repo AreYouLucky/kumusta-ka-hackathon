@@ -1,26 +1,34 @@
 import { Head, useForm } from '@inertiajs/react';
-import { LoaderCircle, LockKeyhole, ShieldCheck, Smartphone } from 'lucide-react';
+import { ChevronDown, LoaderCircle, LockKeyhole, Mail, ShieldCheck, Smartphone } from 'lucide-react';
 import type { FormEvent, JSX } from 'react';
+import { useEffect, useState } from 'react';
 
 type CitizenLoginData = {
+    email: string;
     mobile_number: string;
 };
 
-function hasValidMobileLength(value: string): boolean {
-    const digitCount = value.replace(/\D/g, '').length;
+type LoginProps = {
+    testAccounts: string[];
+};
 
-    return digitCount === 10 || digitCount === 11 || digitCount === 12;
-}
-
-export default function Login(): JSX.Element {
+export default function Login({ testAccounts }: LoginProps): JSX.Element {
     const { data, setData, post, processing, errors, clearErrors } = useForm<CitizenLoginData>({
+        email: '',
         mobile_number: '',
     });
+    const [isMobileFallback, setIsMobileFallback] = useState(false);
+
+    useEffect(() => {
+        if (errors.email !== undefined) {
+            setIsMobileFallback(true);
+        }
+    }, [errors.email]);
 
     function submitLogin(event: FormEvent<HTMLFormElement>): void {
         event.preventDefault();
 
-        if (!hasValidMobileLength(data.mobile_number) || processing) {
+        if ((isMobileFallback ? !hasValidMobileNumber(data.mobile_number) : data.email === '') || processing) {
             return;
         }
 
@@ -54,7 +62,7 @@ export default function Login(): JSX.Element {
 
                         <h1 className="mt-8 text-3xl leading-tight font-black tracking-tight">Citizen sign in</h1>
                         <p className="mt-3 max-w-xs text-sm leading-6 text-sky-50">
-                            Access your safety circles and emergency tools using your registered mobile number.
+                            Choose a hackathon test account to access the citizen safety module.
                         </p>
                     </div>
 
@@ -64,56 +72,117 @@ export default function Login(): JSX.Element {
                             className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.10)]"
                         >
                             <span className="grid size-12 place-items-center rounded-2xl bg-sky-100 text-sky-700">
-                                <Smartphone className="size-5" aria-hidden="true" />
+                                <Mail className="size-5" aria-hidden="true" />
                             </span>
-                            <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Enter your mobile number</h2>
-                            <p className="mt-2 text-sm leading-6 text-slate-500">We’ll find your registered citizen account and sign you in.</p>
+                            <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Select a test account</h2>
+                            <p className="mt-2 text-sm leading-6 text-slate-500">
+                                The matching exchange code stays secured on the server and is sent directly to eGov.
+                            </p>
 
-                            <label className="mt-6 block text-xs font-extrabold text-slate-700" htmlFor="citizen-mobile-number">
-                                Mobile number
+                            <label className="mt-6 block text-xs font-extrabold text-slate-700" htmlFor="citizen-email">
+                                Citizen email
                             </label>
                             <div className="relative mt-2">
-                                <Smartphone className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-                                <input
-                                    id="citizen-mobile-number"
-                                    type="tel"
-                                    inputMode="tel"
-                                    autoComplete="tel"
-                                    value={data.mobile_number}
+                                <Mail
+                                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
+                                    aria-hidden="true"
+                                />
+                                <select
+                                    id="citizen-email"
+                                    value={data.email}
                                     onChange={(event) => {
-                                        clearErrors('mobile_number');
-                                        setData('mobile_number', event.target.value);
+                                        clearErrors('email');
+                                        setData('email', event.target.value);
+                                        setData('mobile_number', '');
+                                        setIsMobileFallback(false);
                                     }}
-                                    placeholder="0917 123 4567"
                                     autoFocus
-                                    aria-invalid={errors.mobile_number !== undefined}
-                                    aria-describedby={errors.mobile_number === undefined ? undefined : 'citizen-mobile-number-error'}
-                                    className="h-12 w-full rounded-xl border border-slate-200 bg-white pr-3 pl-10 text-sm font-semibold text-slate-800 transition outline-none placeholder:text-slate-300 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                                    aria-invalid={errors.email !== undefined}
+                                    aria-describedby={errors.email === undefined ? undefined : 'citizen-email-error'}
+                                    className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-white pr-10 pl-10 text-sm font-semibold text-slate-800 transition outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                                >
+                                    <option value="">Choose an email account</option>
+                                    {testAccounts.map((email) => (
+                                        <option key={email} value={email}>
+                                            {email}
+                                        </option>
+                                    ))}
+                                </select>
+                                <ChevronDown
+                                    className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400"
+                                    aria-hidden="true"
                                 />
                             </div>
-                            {errors.mobile_number !== undefined && (
-                                <p id="citizen-mobile-number-error" className="mt-2 text-xs font-semibold text-red-600">
-                                    {errors.mobile_number}
+                            {errors.email !== undefined && (
+                                <p id="citizen-email-error" className="mt-2 text-xs font-semibold text-red-600">
+                                    {errors.email}
                                 </p>
+                            )}
+
+                            {isMobileFallback && (
+                                <div className="mt-5 border-t border-slate-200 pt-5">
+                                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                                        <p className="text-xs font-extrabold text-amber-800">eGov sign-in unavailable</p>
+                                        <p className="mt-1 text-xs leading-5 text-amber-700">
+                                            Use a mobile number already saved on your citizen account.
+                                        </p>
+                                    </div>
+
+                                    <label className="mt-4 block text-xs font-extrabold text-slate-700" htmlFor="citizen-mobile-number">
+                                        Mobile number
+                                    </label>
+                                    <div className="relative mt-2">
+                                        <Smartphone
+                                            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
+                                            aria-hidden="true"
+                                        />
+                                        <input
+                                            id="citizen-mobile-number"
+                                            type="tel"
+                                            inputMode="tel"
+                                            autoComplete="tel"
+                                            value={data.mobile_number}
+                                            onChange={(event) => {
+                                                clearErrors('mobile_number');
+                                                setData('mobile_number', event.target.value);
+                                            }}
+                                            placeholder="0917 123 4567"
+                                            aria-invalid={errors.mobile_number !== undefined}
+                                            aria-describedby={errors.mobile_number === undefined ? undefined : 'citizen-mobile-number-error'}
+                                            className="h-12 w-full rounded-xl border border-slate-200 bg-white pr-3 pl-10 text-sm font-semibold text-slate-800 transition outline-none placeholder:text-slate-300 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                                        />
+                                    </div>
+                                    {errors.mobile_number !== undefined && (
+                                        <p id="citizen-mobile-number-error" className="mt-2 text-xs font-semibold text-red-600">
+                                            {errors.mobile_number}
+                                        </p>
+                                    )}
+                                </div>
                             )}
 
                             <button
                                 type="submit"
-                                disabled={!hasValidMobileLength(data.mobile_number) || processing}
+                                disabled={(isMobileFallback ? !hasValidMobileNumber(data.mobile_number) : data.email === '') || processing}
                                 className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 text-sm font-extrabold text-white transition hover:bg-sky-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 disabled:cursor-not-allowed disabled:bg-slate-300"
                             >
                                 {processing && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
-                                {processing ? 'Signing in...' : 'Sign in'}
+                                {processing ? 'Signing in...' : isMobileFallback ? 'Sign in with mobile number' : 'Continue with eGov'}
                             </button>
                         </form>
 
                         <div className="mt-4 flex items-center justify-center gap-1.5 text-[10px] font-semibold text-slate-400">
                             <LockKeyhole className="size-3" aria-hidden="true" />
-                            Registered citizen accounts only
+                            Exchange codes are never exposed to the browser
                         </div>
                     </div>
                 </section>
             </main>
         </>
     );
+}
+
+function hasValidMobileNumber(value: string): boolean {
+    const digitCount = value.replace(/\D/g, '').length;
+
+    return digitCount === 10 || digitCount === 11 || digitCount === 12;
 }

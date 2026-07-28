@@ -3,14 +3,15 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
     /**
@@ -19,6 +20,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'egov_subject',
         'username',
         'fname',
         'lname',
@@ -27,9 +29,12 @@ class User extends Authenticatable
         'sex',
         'role',
         'email',
+        'email_verified_at',
         'mobile_number',
         'password',
         'last_login',
+        'egov_profile',
+        'egov_profile_synced_at',
     ];
 
     /**
@@ -40,6 +45,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'egov_profile',
     ];
 
     /**
@@ -51,7 +57,10 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'last_login' => 'datetime',
             'password' => 'hashed',
+            'egov_profile' => 'array',
+            'egov_profile_synced_at' => 'datetime',
         ];
     }
 

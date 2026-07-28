@@ -34,6 +34,10 @@ test('saving a Central Bicutan disaster immediately resets affected circle membe
             'relationship' => 'You',
             'safety_status' => 'safe',
             'checked_in_at' => now(),
+            'last_seen_location_name' => 'DOST Main Building, Central Bicutan',
+            'last_seen_latitude' => 14.5261362,
+            'last_seen_longitude' => 121.0593401,
+            'last_seen_at' => now()->subMinutes(5),
         ],
         [
             'user_id' => $member->id,
@@ -105,7 +109,22 @@ test('saving a Central Bicutan disaster immediately resets affected circle membe
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('incidentGroups.0.affected_count', 2)
-            ->has('incidentGroups.0.residents', 2));
+            ->has('incidentGroups.0.residents', 2)
+            ->where('incidentGroups.0.residents', fn ($residents): bool => collect($residents)->contains(
+                fn (array $resident): bool => $resident['last_seen_location'] !== null
+                    && $resident['last_seen_location']['name'] === 'DOST Main Building, Central Bicutan'
+                    && $resident['last_seen_location']['latitude'] === 14.5261362
+                    && $resident['last_seen_location']['longitude'] === 121.0593401
+            )));
+
+    $this->actingAs($owner)
+        ->get(route('citizen.circles.show', $circle))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('circle.members', fn ($members): bool => collect($members)->contains(
+                fn (array $circleMember): bool => $circleMember['lastSeenLocation'] !== null
+                    && $circleMember['lastSeenLocation']['name'] === 'DOST Main Building, Central Bicutan'
+            )));
 
     $ownerMembership = $circle->memberships()->where('user_id', $owner->id)->sole();
 

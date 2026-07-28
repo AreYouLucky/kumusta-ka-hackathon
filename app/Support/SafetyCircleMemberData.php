@@ -29,7 +29,25 @@ class SafetyCircleMemberData
             'status' => $membership->safety_status,
             'responseStatus' => $membership->response_status,
             'updatedAt' => $membership->checked_in_at?->diffForHumans() ?? 'No response yet',
+            'lastSeenLocation' => self::lastSeenLocation($membership),
             'isCurrentUser' => $currentUserId === null ? null : $membership->user_id === $currentUserId,
+        ];
+    }
+
+    /**
+     * @return array<string, float|string|null>|null
+     */
+    public static function lastSeenLocation(SafetyCircleMember $membership): ?array
+    {
+        if ($membership->last_seen_latitude === null || $membership->last_seen_longitude === null) {
+            return null;
+        }
+
+        return [
+            'name' => $membership->last_seen_location_name ?? 'Last seen location',
+            'latitude' => (float) $membership->last_seen_latitude,
+            'longitude' => (float) $membership->last_seen_longitude,
+            'recordedAt' => $membership->last_seen_at?->diffForHumans(),
         ];
     }
 }

@@ -62,6 +62,10 @@ function getStatusBadgeClass(status: MemberSafetyStatus): string {
     return 'border-red-200 bg-red-50 text-red-600';
 }
 
+function googleMapsUrl(latitude: number, longitude: number): string {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${latitude},${longitude}`)}`;
+}
+
 function StatusIcon({ status, className = 'size-4' }: { status: MemberSafetyStatus; className?: string }): JSX.Element {
     if (status === 'no_response') {
         return <Clock3 className={className} aria-hidden="true" />;
@@ -248,7 +252,7 @@ export function CircleDetailsSection({ circle }: CircleDetailsSectionProps): JSX
 
             <div className="mt-4 flex items-start gap-2 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-xs leading-5 font-semibold text-sky-800">
                 <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <span>Sinumang miyembro ay maaaring mag-update ng status. Tap a member to make a change.</span>
+                <span>Sinumang miyembro ay maaaring mag-update ng status. Use the arrow to update or tap a location to open Google Maps.</span>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -256,12 +260,9 @@ export function CircleDetailsSection({ circle }: CircleDetailsSectionProps): JSX
                     const currentStatus = getStatusOption(member.status);
 
                     return (
-                        <button
+                        <div
                             key={member.id}
-                            type="button"
-                            onClick={() => setSelectedMemberId(member.id)}
-                            aria-label={`Update status for ${member.name}`}
-                            className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition hover:border-sky-200 hover:bg-sky-50/40 hover:shadow-[0_7px_18px_rgba(15,23,42,0.07)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+                            className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition hover:border-sky-200 hover:shadow-[0_7px_18px_rgba(15,23,42,0.07)]"
                         >
                             <span
                                 className={`grid size-11 shrink-0 place-items-center rounded-full text-xs font-extrabold text-white ${avatarColors[index % avatarColors.length]}`}
@@ -284,9 +285,35 @@ export function CircleDetailsSection({ circle }: CircleDetailsSectionProps): JSX
                                 </span>
                                 {member.responseStatus && <ResponseStatusBadge status={member.responseStatus} />}
                                 <span className="mt-1.5 block text-[10px] text-slate-400">{member.updatedAt}</span>
+                                {member.lastSeenLocation && (
+                                    <a
+                                        href={googleMapsUrl(member.lastSeenLocation.latitude, member.lastSeenLocation.longitude)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        aria-label={`View ${member.name}'s last seen location in Google Maps`}
+                                        className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1.5 text-[11px] font-extrabold text-sky-700 transition hover:bg-sky-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+                                    >
+                                        <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                                        <span className="min-w-0">
+                                            <span className="block truncate">{member.lastSeenLocation.name}</span>
+                                            <span className="block text-[9px] font-semibold text-sky-600">
+                                                Last seen {member.lastSeenLocation.recordedAt ?? 'time unavailable'}
+                                            </span>
+                                        </span>
+                                        <span className="sr-only"> · Opens Google Maps</span>
+                                    </a>
+                                )}
                             </span>
-                            <ChevronRight className="mt-3 size-5 shrink-0 text-slate-300" aria-hidden="true" />
-                        </button>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedMemberId(member.id)}
+                                aria-label={`Update status for ${member.name}`}
+                                className="inline-flex h-10 shrink-0 items-center gap-0.5 rounded-xl px-2 text-[10px] font-extrabold text-slate-500 transition hover:bg-sky-50 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+                            >
+                                Update
+                                <ChevronRight className="size-5" aria-hidden="true" />
+                            </button>
+                        </div>
                     );
                 })}
             </div>

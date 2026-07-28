@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Citizen\CitizenPageController;
+use App\Http\Controllers\Citizen\CitizenReportAnalysisController;
 use App\Http\Controllers\Citizen\SafetyCircleController;
 use App\Http\Controllers\GCC\AffectedResidentController;
 use App\Http\Controllers\GCC\DisasterIncidentController;
@@ -45,6 +46,9 @@ Route::prefix('frontend')->middleware('citizen.auth')->name('citizen.')->group(f
     Route::patch('/circles/{circle}/members/{member}/status', [SafetyCircleController::class, 'updateStatus'])
         ->name('circles.members.status');
     Route::patch('/check-in', [SafetyCircleController::class, 'checkIn'])->name('check-in');
+    Route::post('/assistance/analyze', CitizenReportAnalysisController::class)
+        ->middleware('throttle:20,1')
+        ->name('assistance.analyze');
     Route::get('/preparedness', [CitizenPageController::class, 'preparedness'])->name('preparedness');
     Route::get('/advisory', [CitizenPageController::class, 'advisory'])->name('advisory');
     Route::get('/profile', [CitizenPageController::class, 'profile'])->name('profile');

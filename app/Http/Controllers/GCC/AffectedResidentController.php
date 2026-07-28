@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AffectedResident;
 use App\Models\DisasterIncident;
 use App\Services\DisasterCircleService;
+use App\Support\SafetyCircleMemberData;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,7 +21,7 @@ class AffectedResidentController extends Controller
 
         $incidentGroups = DisasterIncident::query()
             ->with(['affectedResidents' => fn ($query) => $query
-                ->with('residence')
+                ->with(['residence', 'safetyCircleMember'])
                 ->orderByRaw("
                     CASE
                         WHEN status <> 'rescued'
@@ -99,6 +100,9 @@ class AffectedResidentController extends Controller
                     'has_health_problem' => (bool) $resident->residence?->has_health_problem,
                     'health_problem_details' => $resident->residence?->health_problem_details,
                     'evacuation_center' => $resident->evacuation_center,
+                    'last_seen_location' => $resident->safetyCircleMember === null
+                        ? null
+                        : SafetyCircleMemberData::lastSeenLocation($resident->safetyCircleMember),
                 ]),
             ]);
 

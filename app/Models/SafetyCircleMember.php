@@ -24,6 +24,10 @@ class SafetyCircleMember extends Model
         'accepted_at',
         'resolved_at',
         'checked_in_at',
+        'last_seen_location_name',
+        'last_seen_latitude',
+        'last_seen_longitude',
+        'last_seen_at',
     ];
 
     protected function casts(): array
@@ -32,6 +36,9 @@ class SafetyCircleMember extends Model
             'checked_in_at' => 'datetime',
             'accepted_at' => 'datetime',
             'resolved_at' => 'datetime',
+            'last_seen_latitude' => 'decimal:7',
+            'last_seen_longitude' => 'decimal:7',
+            'last_seen_at' => 'datetime',
         ];
     }
 

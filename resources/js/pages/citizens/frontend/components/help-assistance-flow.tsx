@@ -21,6 +21,8 @@ import {
 import type { ChangeEvent, JSX } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { analyzeCitizenReport } from '@/services/egov-ai';
+
 import {
     assistanceResponseSeeds,
     createParsedAssistanceData,
@@ -166,11 +168,17 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
     const [isListening, setIsListening] = useState(false);
     const [isSpeechRecognitionSupported, setIsSpeechRecognitionSupported] = useState(false);
     const [speechError, setSpeechError] = useState<string | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisError, setAnalysisError] = useState<string | null>(null);
+    const [assistantResponse, setAssistantResponse] = useState<string | null>(null);
+    const [aiMode, setAiMode] = useState<AssistanceFlowMode | null>(null);
+    const [aiAgencyName, setAiAgencyName] = useState<string | null>(null);
+    const [aiGuidance, setAiGuidance] = useState<readonly string[]>([]);
     const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
     const silenceTimerRef = useRef<number | null>(null);
     const latestTranscriptRef = useRef('');
     const shouldContinueListeningRef = useRef(false);
-    const resolvedMode = matchedResponse?.mode ?? mode;
+    const resolvedMode = aiMode ?? matchedResponse?.mode ?? mode;
     const isUrgent = resolvedMode === 'rescue';
     const reviewTitle =
         matchedResponse === null
@@ -178,8 +186,8 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
             : matchedResponse.mode === 'rescue'
               ? 'Kumpirmahin ang agarang rescue request'
               : 'Suriin ang request para sa tulong';
-    const agencyName = matchedResponse?.agencyName ?? defaultContent.agencyName;
-    const guidance = matchedResponse?.guidance ?? defaultContent.guidance;
+    const agencyName = aiAgencyName ?? matchedResponse?.agencyName ?? defaultContent.agencyName;
+    const guidance = aiGuidance.length > 0 ? aiGuidance : (matchedResponse?.guidance ?? defaultContent.guidance);
 
     useEffect(() => {
         if (step === 'sending') {
@@ -221,6 +229,12 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
         setVisibleVoiceLineCount(0);
         setVisibleParseLineCount(0);
         setSpeechError(null);
+        setAnalysisError(null);
+        setAssistantResponse(null);
+        setAiMode(null);
+        setAiAgencyName(null);
+        setAiGuidance([]);
+        setIsAnalyzing(false);
         setStep('listening');
     }
 
@@ -242,7 +256,7 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
     }
 
     const applyMessage = useCallback(
-        (message: string): void => {
+        async (message: string): Promise<void> => {
             if (message === '') {
                 return;
             }
@@ -251,22 +265,58 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
             clearSilenceTimer();
             recognitionRef.current?.stop();
             setIsListening(false);
-
-            const response = findAssistanceResponseSeed(message);
+            setIsAnalyzing(true);
+            setAnalysisError(null);
 
             setCapturedTranscript(message);
             setTranscriptLines(createTranscriptLines(message));
-            setMatchedResponse(response ?? null);
-            setParsedData(response === undefined ? { ...defaultContent.initialData, situation: message } : createParsedAssistanceData(response));
-            setVisibleVoiceLineCount(2);
-            setVisibleParseLineCount(5);
-            setStep('review');
+            setAssistantResponse(null);
+
+            try {
+                const analysis = await analyzeCitizenReport(message, mode);
+                const response = findAssistanceResponseSeed(`${message} ${analysis.translatedText}`);
+                const structured = analysis.structured;
+
+                setCapturedTranscript(analysis.translatedText);
+                setTranscriptLines(createTranscriptLines(analysis.translatedText));
+                setMatchedResponse(response ?? null);
+                setAssistantResponse(analysis.assistantResponse);
+                setAiMode(structured?.mode ?? null);
+                setAiAgencyName(structured?.agencyName ?? null);
+                setAiGuidance(structured?.guidance ?? []);
+                setParsedData(
+                    structured === null
+                        ? response === undefined
+                            ? { ...defaultContent.initialData, situation: analysis.translatedText }
+                            : createParsedAssistanceData(response)
+                        : {
+                              assistanceType: structured.assistanceType,
+                              situation: structured.situation,
+                              priority: structured.priority,
+                              address: defaultContent.initialData.address,
+                              coordinates: defaultContent.initialData.coordinates,
+                          },
+                );
+            } catch (error: unknown) {
+                const response = findAssistanceResponseSeed(message);
+
+                setMatchedResponse(response ?? null);
+                setParsedData(
+                    response === undefined ? { ...defaultContent.initialData, situation: message } : createParsedAssistanceData(response),
+                );
+                setAnalysisError(error instanceof Error ? error.message : 'eGovAI could not process the report.');
+            } finally {
+                setVisibleVoiceLineCount(2);
+                setVisibleParseLineCount(5);
+                setIsAnalyzing(false);
+                setStep('review');
+            }
         },
-        [clearSilenceTimer, defaultContent.initialData],
+        [clearSilenceTimer, defaultContent.initialData, mode],
     );
 
     function useTypedMessage(): void {
-        applyMessage(typedMessage.trim());
+        void applyMessage(typedMessage.trim());
     }
 
     const scheduleSilenceReview = useCallback(
@@ -274,7 +324,7 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
             latestTranscriptRef.current = transcript;
             clearSilenceTimer();
             silenceTimerRef.current = window.setTimeout(() => {
-                applyMessage(latestTranscriptRef.current.trim());
+                void applyMessage(latestTranscriptRef.current.trim());
             }, silenceTimeoutMs);
         },
         [applyMessage, clearSilenceTimer],
@@ -402,16 +452,16 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                 </p>
                 <button
                     type="button"
-                    disabled={isListening || !isSpeechRecognitionSupported}
+                    disabled={isListening || isAnalyzing || !isSpeechRecognitionSupported}
                     onClick={startSpeechRecognition}
                     className={`mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-extrabold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${isUrgent ? 'bg-red-500 hover:bg-red-600 focus-visible:outline-red-500' : 'bg-orange-500 hover:bg-orange-600 focus-visible:outline-orange-500'}`}
                 >
-                    {isListening ? (
+                    {isListening || isAnalyzing ? (
                         <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
                     ) : (
                         <Mic className="size-4" aria-hidden="true" />
                     )}
-                    {isListening ? 'Live speech-to-text...' : 'Subukan ulit ang microphone'}
+                    {isAnalyzing ? 'Translating with eGovAI...' : isListening ? 'Live speech-to-text...' : 'Subukan ulit ang microphone'}
                 </button>
                 {speechError !== null && <p className="mt-2 text-xs font-semibold text-red-600">{speechError}</p>}
                 {!isSpeechRecognitionSupported && speechError === null && (
@@ -525,12 +575,16 @@ export function HelpAssistanceFlow({ mode, onComplete, subjectName }: HelpAssist
                     />
                     <button
                         type="button"
-                        disabled={typedMessage.trim() === ''}
+                        disabled={typedMessage.trim() === '' || isAnalyzing}
                         onClick={useTypedMessage}
                         className={`mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl px-4 text-xs font-extrabold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${isUrgent ? 'bg-red-500 hover:bg-red-600 focus-visible:outline-red-500' : 'bg-sky-500 hover:bg-sky-600 focus-visible:outline-sky-500'}`}
                     >
-                        <Send className="size-3.5" aria-hidden="true" />
-                        Gamitin ang typed message
+                        {isAnalyzing ? (
+                            <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
+                        ) : (
+                            <Send className="size-3.5" aria-hidden="true" />
+                        )}
+                        {isAnalyzing ? 'Translating and analyzing...' : 'Gamitin ang typed message'}
                     </button>
                 </div>
             </div>

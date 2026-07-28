@@ -23,5 +23,11 @@ test('family circle seeder creates an idempotent five member circle in Taguig Ci
             'citizen.ana',
             'citizen.miguel',
             'citizen.rosa',
-        ]);
+        ])
+        ->and($circle->memberships->every(
+            fn ($membership): bool => $membership->last_seen_location_name !== null
+                && $membership->last_seen_latitude !== null
+                && $membership->last_seen_longitude !== null
+                && $membership->last_seen_at !== null
+        ))->toBeTrue();
 });

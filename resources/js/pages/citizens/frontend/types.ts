@@ -28,6 +28,13 @@ export type MemberCheckInStatus = Exclude<MemberSafetyStatus, 'no_response'>;
 
 export type MemberResponseStatus = 'forwarded_to_lgu' | 'responders_dispatched';
 
+export type LastSeenLocation = {
+    name: string;
+    latitude: number;
+    longitude: number;
+    recordedAt: string | null;
+};
+
 export type SafetyCircleMember = {
     id: number;
     name: string;
@@ -36,6 +43,7 @@ export type SafetyCircleMember = {
     status: MemberSafetyStatus;
     responseStatus?: MemberResponseStatus | null;
     updatedAt: string;
+    lastSeenLocation: LastSeenLocation | null;
     isCurrentUser?: boolean;
 };
 

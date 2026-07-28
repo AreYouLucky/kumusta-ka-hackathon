@@ -24,6 +24,9 @@ class FamilyCircleSeeder extends Seeder
                     'email' => 'citizen@kumustaka.test',
                     'mobile_number' => '09683013603',
                     'relationship' => 'You',
+                    'last_seen_location_name' => 'DOST Main Building, Central Bicutan',
+                    'last_seen_latitude' => 14.5261362,
+                    'last_seen_longitude' => 121.0593401,
                 ],
                 [
                     'username' => 'citizen.maria',
@@ -35,6 +38,9 @@ class FamilyCircleSeeder extends Seeder
                     'email' => 'maria@kumustaka.test',
                     'mobile_number' => '09171234568',
                     'relationship' => 'Spouse',
+                    'last_seen_location_name' => 'DOST-PAGASA Science Garden',
+                    'last_seen_latitude' => 14.5249458,
+                    'last_seen_longitude' => 121.0602354,
                 ],
                 [
                     'username' => 'citizen.ana',
@@ -46,6 +52,9 @@ class FamilyCircleSeeder extends Seeder
                     'email' => 'ana@kumustaka.test',
                     'mobile_number' => '09171234569',
                     'relationship' => 'Daughter',
+                    'last_seen_location_name' => 'Upper Bicutan National High School',
+                    'last_seen_latitude' => 14.5283467,
+                    'last_seen_longitude' => 121.0568924,
                 ],
                 [
                     'username' => 'citizen.miguel',
@@ -57,6 +66,9 @@ class FamilyCircleSeeder extends Seeder
                     'email' => 'miguel@kumustaka.test',
                     'mobile_number' => '09171234570',
                     'relationship' => 'Son',
+                    'last_seen_location_name' => 'Central Bicutan Covered Court',
+                    'last_seen_latitude' => 14.5229831,
+                    'last_seen_longitude' => 121.0577826,
                 ],
                 [
                     'username' => 'citizen.rosa',
@@ -68,12 +80,25 @@ class FamilyCircleSeeder extends Seeder
                     'email' => 'rosa@kumustaka.test',
                     'mobile_number' => '09171234571',
                     'relationship' => 'Mother',
+                    'last_seen_location_name' => 'Central Bicutan Health Center',
+                    'last_seen_latitude' => 14.5257094,
+                    'last_seen_longitude' => 121.0621843,
                 ],
             ];
 
             $familyMembers = collect($familyProfiles)->map(function (array $profile): array {
                 $relationship = $profile['relationship'];
-                unset($profile['relationship']);
+                $lastSeenLocation = [
+                    'name' => $profile['last_seen_location_name'],
+                    'latitude' => $profile['last_seen_latitude'],
+                    'longitude' => $profile['last_seen_longitude'],
+                ];
+                unset(
+                    $profile['relationship'],
+                    $profile['last_seen_location_name'],
+                    $profile['last_seen_latitude'],
+                    $profile['last_seen_longitude'],
+                );
 
                 $user = User::updateOrCreate(
                     ['username' => $profile['username']],
@@ -87,6 +112,7 @@ class FamilyCircleSeeder extends Seeder
                 return [
                     'user' => $user,
                     'relationship' => $relationship,
+                    'last_seen_location' => $lastSeenLocation,
                 ];
             });
 
@@ -114,6 +140,10 @@ class FamilyCircleSeeder extends Seeder
                         'safety_status' => 'safe',
                         'response_status' => null,
                         'checked_in_at' => now(),
+                        'last_seen_location_name' => $member['last_seen_location']['name'],
+                        'last_seen_latitude' => $member['last_seen_location']['latitude'],
+                        'last_seen_longitude' => $member['last_seen_location']['longitude'],
+                        'last_seen_at' => now()->subMinutes(($member['user']->id % 5) * 4 + 2),
                     ],
                 );
             });

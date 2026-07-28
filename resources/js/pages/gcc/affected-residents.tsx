@@ -19,6 +19,7 @@ import {
     HandHeart,
     HeartPulse,
     Home,
+    MapPin,
     MessageSquare,
     MoreHorizontal,
     PersonStanding,
@@ -52,6 +53,12 @@ type Resident = {
     has_health_problem: boolean;
     health_problem_details: string | null;
     evacuation_center: string | null;
+    last_seen_location: {
+        name: string;
+        latitude: number;
+        longitude: number;
+        recordedAt: string | null;
+    } | null;
 };
 
 type IncidentGroup = {
@@ -143,6 +150,10 @@ function residentResponsePriority(resident: Resident): number {
     }
 
     return 3;
+}
+
+function googleMapsUrl(latitude: number, longitude: number): string {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${latitude},${longitude}`)}`;
 }
 
 function responseCounts(
@@ -519,6 +530,24 @@ function ResidentList({
                         <p className="text-muted-foreground mt-1 truncate text-xs">
                             {[resident.barangay, resident.city].filter(Boolean).join(', ') || 'Location not provided'}
                         </p>
+                        {resident.last_seen_location && (
+                            <a
+                                href={googleMapsUrl(resident.last_seen_location.latitude, resident.last_seen_location.longitude)}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label={`View ${resident.full_name}'s last seen location in Google Maps`}
+                                className="mt-2 inline-flex max-w-full items-center gap-1.5 text-xs font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                            >
+                                <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                                <span className="min-w-0">
+                                    <span className="block truncate">{resident.last_seen_location.name}</span>
+                                    <span className="text-muted-foreground block text-[10px] font-normal">
+                                        Last seen {resident.last_seen_location.recordedAt ?? 'time unavailable'}
+                                    </span>
+                                </span>
+                                <span className="sr-only"> · Opens Google Maps</span>
+                            </a>
+                        )}
                     </div>
 
                     <div>

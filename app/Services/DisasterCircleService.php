@@ -11,6 +11,7 @@ use App\Models\DisasterIncident;
 use App\Models\SafetyCircle;
 use App\Models\SafetyCircleMember;
 use App\Models\User;
+use App\Support\BestEffortBroadcast;
 use App\Support\GeoDistance;
 use App\Support\ResponderRequestData;
 use App\Support\SafetyCircleMemberData;
@@ -46,15 +47,15 @@ class DisasterCircleService
 
         $circles->load('memberships.user');
         $this->syncAffectedCircleMembers($incident, $circles);
-        broadcast(new AffectedResidentsChanged($incident->id, 'disaster_activated'));
+        BestEffortBroadcast::dispatch(new AffectedResidentsChanged($incident->id, 'disaster_activated'));
 
         $circles->each(function (SafetyCircle $circle): void {
             $circle->memberships->each(function (SafetyCircleMember $membership) use ($circle): void {
-                broadcast(new SafetyCircleMemberStatusUpdated(
+                BestEffortBroadcast::dispatch(new SafetyCircleMemberStatusUpdated(
                     $circle->id,
                     SafetyCircleMemberData::fromMembership($membership),
                 ));
-                broadcast(new CitizenAssistanceStatusUpdated(
+                BestEffortBroadcast::dispatch(new CitizenAssistanceStatusUpdated(
                     ResponderRequestData::fromMember($membership),
                 ));
             });
@@ -66,7 +67,7 @@ class DisasterCircleService
             ->values()
             ->all();
 
-        broadcast(new DisasterAlertTriggered($this->disasterData($incident), $userIds));
+        BestEffortBroadcast::dispatch(new DisasterAlertTriggered($this->disasterData($incident), $userIds));
     }
 
     /**
@@ -115,7 +116,9 @@ class DisasterCircleService
 
         if ($incident !== null) {
             $affectedResident = $this->syncAffectedCircleMember($incident, $member);
-            broadcast(new AffectedResidentsChanged($incident->id, 'circle_member_added', $affectedResident->id, $member->id));
+            BestEffortBroadcast::dispatch(
+                new AffectedResidentsChanged($incident->id, 'circle_member_added', $affectedResident->id, $member->id)
+            );
         }
     }
 
@@ -145,7 +148,7 @@ class DisasterCircleService
                 'priority' => $member->priority,
             ]);
 
-            broadcast(new AffectedResidentsChanged(
+            BestEffortBroadcast::dispatch(new AffectedResidentsChanged(
                 $affectedResident->disaster_incident_id,
                 'citizen_status_updated',
                 $affectedResident->id,
@@ -166,7 +169,7 @@ class DisasterCircleService
                     'status' => $member->responder_status === 'resolved' ? 'rescued' : $affectedResident->status,
                 ]);
 
-                broadcast(new AffectedResidentsChanged(
+                BestEffortBroadcast::dispatch(new AffectedResidentsChanged(
                     $affectedResident->disaster_incident_id,
                     "responder_{$member->responder_status}",
                     $affectedResident->id,
@@ -331,7 +334,7 @@ class DisasterCircleService
         string $action,
         ?SafetyCircleMember $member,
     ): void {
-        broadcast(new AffectedResidentsChanged(
+        BestEffortBroadcast::dispatch(new AffectedResidentsChanged(
             $affectedResident->disaster_incident_id,
             $action,
             $affectedResident->id,
@@ -343,8 +346,8 @@ class DisasterCircleService
         }
 
         $member->refresh()->load(['user', 'circle', 'responder']);
-        broadcast(new CitizenAssistanceStatusUpdated(ResponderRequestData::fromMember($member)));
-        broadcast(new SafetyCircleMemberStatusUpdated(
+        BestEffortBroadcast::dispatch(new CitizenAssistanceStatusUpdated(ResponderRequestData::fromMember($member)));
+        BestEffortBroadcast::dispatch(new SafetyCircleMemberStatusUpdated(
             $member->safety_circle_id,
             SafetyCircleMemberData::fromMembership($member),
         ));

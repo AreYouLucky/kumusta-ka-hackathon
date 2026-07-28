@@ -6,6 +6,7 @@ use App\Events\CitizenAssistanceStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\SafetyCircleMember;
 use App\Services\DisasterCircleService;
+use App\Support\BestEffortBroadcast;
 use App\Support\ResponderRequestData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -63,7 +64,7 @@ class ResponderRequestController extends Controller
 
         $member->refresh()->load(['user', 'circle', 'responder']);
         $this->disasterCircleService->syncResponderTransaction($member);
-        broadcast(new CitizenAssistanceStatusUpdated(ResponderRequestData::fromMember($member)));
+        BestEffortBroadcast::dispatch(new CitizenAssistanceStatusUpdated(ResponderRequestData::fromMember($member)));
 
         return back();
     }

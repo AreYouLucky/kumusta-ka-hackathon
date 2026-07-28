@@ -14,6 +14,7 @@ use App\Models\SafetyCircleMember;
 use App\Models\User;
 use App\Services\DisasterCircleService;
 use App\Services\EmergencyReportNotificationService;
+use App\Support\BestEffortBroadcast;
 use App\Support\ResponderRequestData;
 use App\Support\SafetyCircleMemberData;
 use Illuminate\Http\RedirectResponse;
@@ -98,7 +99,7 @@ class SafetyCircleController extends Controller
             $this->disasterCircleService->syncMemberWithActiveDisaster($membership);
         }
 
-        broadcast(new SafetyCircleMemberAdded(
+        BestEffortBroadcast::dispatch(new SafetyCircleMemberAdded(
             $circle->id,
             SafetyCircleMemberData::fromMembership($membership, $request->user()->id),
         ));
@@ -182,8 +183,8 @@ class SafetyCircleController extends Controller
     private function broadcastMemberStatus(SafetyCircleMember $member): void
     {
         $member->refresh()->load(['user', 'circle', 'responder']);
-        broadcast(new CitizenAssistanceStatusUpdated(ResponderRequestData::fromMember($member)));
-        broadcast(new SafetyCircleMemberStatusUpdated(
+        BestEffortBroadcast::dispatch(new CitizenAssistanceStatusUpdated(ResponderRequestData::fromMember($member)));
+        BestEffortBroadcast::dispatch(new SafetyCircleMemberStatusUpdated(
             $member->safety_circle_id,
             SafetyCircleMemberData::fromMembership($member),
         ));
